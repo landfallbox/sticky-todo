@@ -14,3 +14,7 @@ app_debug.log
 # OS generated
 .DS_Store
 Thumbs.db
+
+# Archives
+*.zip
+
