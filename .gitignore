@@ -1,0 +1,16 @@
+# Rust / Cargo
+/src-tauri/target
+Cargo.lock
+
+# Node / JS
+node_modules/
+
+# Logs & temp files
+*.log
+*.tmp
+run_log.txt
+app_debug.log
+
+# OS generated
+.DS_Store
+Thumbs.db

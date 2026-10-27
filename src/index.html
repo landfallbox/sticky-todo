@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sticky Todo</title>
+  <link rel="stylesheet" href="assets/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Custom title bar -->
+    <header id="titlebar" data-tauri-drag-region>
+      <div class="titlebar-left" data-tauri-drag-region>
+        <span class="app-icon">✦</span>
+        <span class="app-title" data-tauri-drag-region>便签 Todo</span>
+      </div>
+      <div class="titlebar-actions">
+        <button id="btn-minimize" class="titlebar-btn" title="最小化">
+          <svg width="10" height="1" viewBox="0 0 10 1"><rect width="10" height="1" fill="currentColor"/></svg>
+        </button>
+        <button id="btn-close" class="titlebar-btn btn-close" title="隐藏到托盘">
+          <svg width="10" height="10" viewBox="0 0 10 10">
+            <line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" stroke-width="1.2"/>
+            <line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" stroke-width="1.2"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <input type="text" id="todo-input" placeholder="添加新的待办事项..." autocomplete="off" />
+      <button id="btn-add" title="添加">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <line x1="8" y1="2" x2="8" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar">
+      <span id="stats-text">0 项待办</span>
+      <button id="btn-clear-done" class="link-btn" style="display:none">清除已完成</button>
+    </div>
+
+    <!-- Todo list -->
+    <ul id="todo-list" class="todo-list"></ul>
+
+    <!-- Empty state -->
+    <div id="empty-state" class="empty-state">
+      <div class="empty-icon">📝</div>
+      <p>还没有待办事项</p>
+      <p class="empty-hint">在上方输入框添加一个吧</p>
+    </div>
+  </div>
+
+  <!-- Edge peek strip (visible when snapped to edge) -->
+  <div id="edge-peek" class="edge-peek" title="点击或悬停唤醒便签">
+    <div class="peek-handle"></div>
+  </div>
+
+  <script src="assets/app.js"></script>
+</body>
+</html>
