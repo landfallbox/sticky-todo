@@ -348,6 +348,36 @@ body.collapsed {
   min-width: 0;
 }
 
+/* Edit button */
+.todo-edit {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  opacity: 0;
+  flex-shrink: 0;
+  transition: opacity var(--transition), color var(--transition), background var(--transition), transform 100ms ease;
+}
+
+.todo-item:hover .todo-edit {
+  opacity: 1;
+}
+
+.todo-edit:hover {
+  color: var(--accent);
+  background: rgba(0, 103, 192, 0.08);
+}
+
+.todo-edit:active {
+  transform: scale(0.85);
+}
+
 /* Delete button */
 .todo-delete {
   width: 24px;
