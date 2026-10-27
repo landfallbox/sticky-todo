@@ -4,6 +4,15 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Sticky Todo</title>
+  <script>
+    // 首帧渲染前应用已保存的主题，避免闪烁
+    (function () {
+      var mode = 'system';
+      try { mode = localStorage.getItem('sticky-todo:theme') || 'system'; } catch (e) {}
+      var dark = mode === 'dark' || (mode === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    })();
+  </script>
   <link rel="stylesheet" href="assets/style.css" />
 </head>
 <body>
@@ -68,6 +77,19 @@
             <input type="checkbox" id="switch-always-on-top" checked />
             <span class="slider"></span>
           </label>
+        </div>
+
+        <!-- Theme selector -->
+        <div class="settings-row">
+          <div class="settings-info">
+            <div class="settings-label">主题</div>
+            <div class="settings-desc">选择应用外观样式</div>
+          </div>
+          <div class="segmented" id="theme-segmented" role="radiogroup" aria-label="主题">
+            <button type="button" data-theme-mode="light">浅色</button>
+            <button type="button" data-theme-mode="dark">深色</button>
+            <button type="button" data-theme-mode="system">跟随系统</button>
+          </div>
         </div>
 
         <!-- Check for updates -->
