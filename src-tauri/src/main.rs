@@ -204,6 +204,16 @@ fn get_autostart() -> bool {
 
 #[tauri::command]
 fn set_autostart(enable: bool) -> Result<bool, String> {
+    // 隔离开发模式（STICKYTODO_DATA_DIR 已设置）下禁止注册开机自启：
+    // 登录启动时不会携带该环境变量，debug exe 会直接读写正式版数据。
+    if enable
+        && std::env::var("STICKYTODO_DATA_DIR")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .is_some()
+    {
+        return Err("隔离开发模式下不支持开机自启，请先关闭隔离模式".into());
+    }
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
