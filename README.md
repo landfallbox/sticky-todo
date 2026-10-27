@@ -55,6 +55,7 @@
 
 #### 1. 环境准备
 - [Rust 工具链](https://rustup.rs/) (1.70+)
+- [Node.js](https://nodejs.org/) (LTS，提供 `npm`；`npm run` 脚本依赖它)
 - Windows 10 / Windows 11 (内置 Microsoft Edge WebView2)
 - [Tauri CLI v2](https://v2.tauri.app/start/):
   ```bash
@@ -65,6 +66,9 @@
 ```bash
 git clone https://github.com/landfallbox/sticky-todo.git
 cd sticky-todo
+
+# 安装 npm 依赖（提供 `tauri` 命令，供 npm run 脚本使用）
+npm install
 
 # 开发模式（热重载）
 cargo tauri dev
