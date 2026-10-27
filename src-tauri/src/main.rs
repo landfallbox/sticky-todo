@@ -170,6 +170,70 @@ fn show_window<R: Runtime>(window: WebviewWindow<R>) {
     let _ = window.set_focus();
 }
 
+#[tauri::command]
+fn set_always_on_top<R: Runtime>(window: WebviewWindow<R>, always_on_top: bool) -> Result<(), String> {
+    window.set_always_on_top(always_on_top).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+fn get_autostart() -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let output = std::process::Command::new("reg")
+            .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "StickyTodo"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+        matches!(output, Ok(out) if out.status.success())
+    }
+    #[cfg(not(target_os = "windows"))]
+    false
+}
+
+#[tauri::command]
+fn set_autostart(enable: bool) -> Result<bool, String> {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        if enable {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            let exe_str = exe.to_string_lossy().to_string();
+            let status = std::process::Command::new("reg")
+                .args([
+                    "add",
+                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                    "/v",
+                    "StickyTodo",
+                    "/t",
+                    "REG_SZ",
+                    "/d",
+                    &format!("\"{}\"", exe_str),
+                    "/f",
+                ])
+                .creation_flags(CREATE_NO_WINDOW)
+                .status()
+                .map_err(|e| e.to_string())?;
+            Ok(status.success())
+        } else {
+            let _ = std::process::Command::new("reg")
+                .args([
+                    "delete",
+                    r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                    "/v",
+                    "StickyTodo",
+                    "/f",
+                ])
+                .creation_flags(CREATE_NO_WINDOW)
+                .status();
+            Ok(false)
+        }
+    }
+    #[cfg(not(target_os = "windows"))]
+    Ok(false)
+}
+
 fn animate_move(window: &WebviewWindow, target_x: i32, target_y: i32) {
     if IS_ANIMATING.swap(true, Ordering::SeqCst) {
         return;
@@ -541,6 +605,9 @@ fn main() {
             minimize_window,
             hide_window,
             show_window,
+            set_always_on_top,
+            get_autostart,
+            set_autostart,
             collapse_window,
             expand_window,
         ])

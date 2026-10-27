@@ -525,3 +525,154 @@ body.collapsed.dock-top .peek-handle {
   .input-area { padding: 4px 10px 6px; }
   .todo-list { padding: 0 6px 6px; }
 }
+
+/* ─── Settings Panel (Flyout / Overlay) ─────────── */
+
+.settings-panel {
+  position: absolute;
+  top: 36px;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--bg-mica);
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  padding: 12px 14px;
+  animation: fadeIn 150ms ease;
+}
+
+.settings-panel.hidden {
+  display: none;
+}
+
+.settings-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.settings-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  flex: 1;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.settings-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.settings-desc {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* ─── Fluent Switch ──────────────────────────────── */
+
+.fluent-switch {
+  position: relative;
+  display: inline-block;
+  width: 38px;
+  height: 20px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.fluent-switch input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.fluent-switch .slider {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.2);
+  border-radius: 20px;
+  transition: 200ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.fluent-switch .slider:before {
+  position: absolute;
+  content: "";
+  height: 12px;
+  width: 12px;
+  left: 3px;
+  bottom: 3px;
+  background-color: #666666;
+  border-radius: 50%;
+  transition: 200ms cubic-bezier(0.33, 1, 0.68, 1);
+}
+
+.fluent-switch input:checked + .slider {
+  background-color: var(--accent);
+  border-color: var(--accent);
+}
+
+.fluent-switch input:checked + .slider:before {
+  transform: translateX(18px);
+  background-color: #ffffff;
+}
+
+.settings-footer {
+  margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.app-version {
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.github-link {
+  font-size: 11px;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.github-link:hover {
+  text-decoration: underline;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}

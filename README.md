@@ -30,9 +30,13 @@
   - 一键清理已完成待办
 - 💾 **本地安全持久化**：
   - 数据存储于 `%LOCALAPPDATA%\StickyTodo\todos.json`，无任何云端上传，零隐私泄露风险。
-- 📌 **桌面与托盘整合**：
-  - 窗口支持置顶与拖动
-  - 点击关闭按钮自动最小化至系统托盘，随时从托盘双击恢复。
+- ⚙️ **偏好设置与后台常驻**：
+  - **开机自启动开关**：内置无权限门槛的开机自启切换（写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`），电脑开机自动在后台就绪。
+  - **窗口置顶切换**：可自由切换是否始终悬浮于其他窗口上方。
+  - **优雅托盘托管**：点击右上角关闭按钮自动退至系统托盘，双击托盘图标即可随时唤起。
+- 📦 **免安装便携版 & 正式安装包**：
+  - 提供单文件免安装绿色版 `sticky-todo.exe`
+  - 提供现代 Windows 安装包 `Sticky Todo_0.1.0_x64-setup.exe`（支持开始菜单与桌面快捷方式）。
 
 ---
 
@@ -40,7 +44,9 @@
 
 ### 直接下载使用
 
-前往 [Releases 页面](https://github.com/landfallbox/sticky-todo/releases) 下载最新版的独立免安装可执行程序 `sticky-todo.exe`，双击即可直接运行！
+前往 [Releases 页面](https://github.com/landfallbox/sticky-todo/releases) 下载最新发行版：
+- **安装包（推荐）**：下载 `Sticky-Todo-Installer.exe`（或 `Sticky Todo_0.1.0_x64-setup.exe`），一键自动安装并创建开始菜单和桌面快捷方式。
+- **免安装绿色版**：下载 `sticky-todo.exe`，解压即用。
 
 ---
 

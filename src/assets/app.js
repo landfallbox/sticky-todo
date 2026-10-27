@@ -27,6 +27,11 @@ const statsText = document.getElementById('stats-text');
 const btnClearDone = document.getElementById('btn-clear-done');
 const btnMinimize = document.getElementById('btn-minimize');
 const btnClose = document.getElementById('btn-close');
+const btnSettings = document.getElementById('btn-settings');
+const btnCloseSettings = document.getElementById('btn-close-settings');
+const settingsPanel = document.getElementById('settings-panel');
+const switchAutostart = document.getElementById('switch-autostart');
+const switchAlwaysOnTop = document.getElementById('switch-always-on-top');
 
 let todos = [];
 let dragSrcId = null;
@@ -42,6 +47,17 @@ async function init() {
   } catch (err) {
     console.error('Failed to load todos:', err);
   }
+
+  // Load autostart status
+  try {
+    const autostart = await invoke('get_autostart');
+    if (switchAutostart) {
+      switchAutostart.checked = !!autostart;
+    }
+  } catch (err) {
+    console.error('Failed to check autostart:', err);
+  }
+
   render();
   setupEventListeners();
   setupDockListeners();
@@ -59,6 +75,39 @@ function setupEventListeners() {
   // Window controls
   btnMinimize.addEventListener('click', () => invoke('minimize_window'));
   btnClose.addEventListener('click', () => invoke('hide_window'));
+
+  // Settings
+  if (btnSettings && settingsPanel) {
+    btnSettings.addEventListener('click', () => {
+      settingsPanel.classList.toggle('hidden');
+    });
+  }
+  if (btnCloseSettings && settingsPanel) {
+    btnCloseSettings.addEventListener('click', () => {
+      settingsPanel.classList.add('hidden');
+    });
+  }
+
+  // Switches
+  if (switchAutostart) {
+    switchAutostart.addEventListener('change', async () => {
+      try {
+        await invoke('set_autostart', { enable: switchAutostart.checked });
+      } catch (err) {
+        console.error('Failed to set autostart:', err);
+      }
+    });
+  }
+
+  if (switchAlwaysOnTop) {
+    switchAlwaysOnTop.addEventListener('change', async () => {
+      try {
+        await invoke('set_always_on_top', { alwaysOnTop: switchAlwaysOnTop.checked });
+      } catch (err) {
+        console.error('Failed to set always_on_top:', err);
+      }
+    });
+  }
 
   // Clear completed
   btnClearDone.addEventListener('click', clearCompleted);
