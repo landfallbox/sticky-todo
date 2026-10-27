@@ -420,7 +420,9 @@ body.collapsed {
   cursor: pointer;
   background: var(--accent);
   box-shadow: 0 0 12px rgba(0, 103, 192, 0.45);
-  transition: background 150ms ease, filter 150ms ease;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease, background 150ms ease, filter 150ms ease;
 }
 
 .edge-peek:hover {
@@ -435,7 +437,7 @@ body.collapsed {
 }
 
 /* Left edge docked: window is mostly off-screen left, visible tab is at right edge of window */
-body.collapsed.dock-left .edge-peek {
+body.dock-left .edge-peek {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -447,13 +449,13 @@ body.collapsed.dock-left .edge-peek {
   border-left: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-body.collapsed.dock-left .peek-handle {
+body.dock-left .peek-handle {
   width: 4px;
   height: 54px;
 }
 
 /* Right edge docked: window is mostly off-screen right, visible tab is at left edge of window */
-body.collapsed.dock-right .edge-peek {
+body.dock-right .edge-peek {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -465,13 +467,13 @@ body.collapsed.dock-right .edge-peek {
   border-right: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-body.collapsed.dock-right .peek-handle {
+body.dock-right .peek-handle {
   width: 4px;
   height: 54px;
 }
 
 /* Top edge docked: window is mostly off-screen top, visible tab is at bottom edge of window */
-body.collapsed.dock-top .edge-peek {
+body.dock-top .edge-peek {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -483,9 +485,15 @@ body.collapsed.dock-top .edge-peek {
   border-top: 1px solid rgba(255, 255, 255, 0.15);
 }
 
-body.collapsed.dock-top .peek-handle {
+body.dock-top .peek-handle {
   width: 54px;
   height: 4px;
+}
+
+/* Visible and interactive only when collapsed */
+body.collapsed .edge-peek {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 /* ─── Animations ─────────────────────────────────── */

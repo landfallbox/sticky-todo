@@ -166,7 +166,7 @@ async function handleCheckUpdate() {
           const data = await resp.json();
           const latestTag = data.tag_name || '';
           const latestVer = latestTag.replace(/^v/, '');
-          const curVer = '0.1.1';
+          const curVer = '0.1.2';
           const hasUp = compareSemver(latestVer, curVer) > 0;
           result = {
             success: true,
@@ -234,10 +234,12 @@ function setupDockListeners() {
   if (edgePeek) {
     edgePeek.addEventListener('mouseenter', () => {
       if (document.body.classList.contains('collapsed')) {
+        document.body.classList.remove('collapsed');
         invoke('expand_window');
       }
     });
     edgePeek.addEventListener('click', () => {
+      document.body.classList.remove('collapsed');
       invoke('expand_window');
     });
   }

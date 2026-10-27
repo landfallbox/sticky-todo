@@ -377,8 +377,8 @@ fn expand_window(state: tauri::State<'_, AppState>, app: tauri::AppHandle) {
     drop(dock);
 
     if let Some(win) = app.get_webview_window("main") {
-        animate_move(&win, exp_x, exp_y);
         let _ = win.emit("collapsed-changed", false);
+        animate_move(&win, exp_x, exp_y);
     }
 }
 
@@ -582,8 +582,8 @@ fn start_cursor_watcher() {
                     drop(dock);
 
                     if let Some(win) = app.get_webview_window("main") {
-                        animate_move(&win, exp_x, exp_y);
                         let _ = win.emit("collapsed-changed", false);
+                        animate_move(&win, exp_x, exp_y);
                     }
                 }
             } else {
