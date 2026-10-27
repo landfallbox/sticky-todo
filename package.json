@@ -1,6 +1,12 @@
 {
   "name": "sticky-todo",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
-  "description": "A lightweight sticky note TODO-list app"
+  "description": "A lightweight sticky note TODO-list app",
+  "scripts": {
+    "tauri": "tauri"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2.2.0"
+  }
 }

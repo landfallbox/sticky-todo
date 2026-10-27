@@ -32,9 +32,12 @@ const btnCloseSettings = document.getElementById('btn-close-settings');
 const settingsPanel = document.getElementById('settings-panel');
 const switchAutostart = document.getElementById('switch-autostart');
 const switchAlwaysOnTop = document.getElementById('switch-always-on-top');
+const btnCheckUpdate = document.getElementById('btn-check-update');
+const updateStatusText = document.getElementById('update-status-text');
 
 let todos = [];
 let dragSrcId = null;
+let latestReleaseUrl = null;
 
 // ── Initialization ──────────────────────────────────
 
@@ -109,8 +112,101 @@ function setupEventListeners() {
     });
   }
 
+  // Update checker
+  if (btnCheckUpdate) {
+    btnCheckUpdate.addEventListener('click', handleCheckUpdate);
+  }
+
   // Clear completed
   btnClearDone.addEventListener('click', clearCompleted);
+}
+
+// ── Update Checker ──────────────────────────────────
+
+function compareSemver(a, b) {
+  const pa = a.split('.').map(n => parseInt(n, 10) || 0);
+  const pb = b.split('.').map(n => parseInt(n, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const na = pa[i] || 0;
+    const nb = pb[i] || 0;
+    if (na > nb) return 1;
+    if (na < nb) return -1;
+  }
+  return 0;
+}
+
+async function handleCheckUpdate() {
+  if (latestReleaseUrl) {
+    try {
+      await invoke('open_external_url', { url: latestReleaseUrl });
+    } catch {
+      window.open(latestReleaseUrl, '_blank');
+    }
+    return;
+  }
+
+  btnCheckUpdate.disabled = true;
+  btnCheckUpdate.textContent = '检查中...';
+  if (updateStatusText) updateStatusText.textContent = '正在获取最新版本信息...';
+
+  try {
+    let result = null;
+    try {
+      result = await invoke('check_for_updates');
+    } catch (e) {
+      console.warn('Backend update check failed:', e);
+    }
+
+    // Fallback: try frontend web fetch if backend failed
+    if (!result || !result.success) {
+      try {
+        const resp = await fetch('https://api.github.com/repos/landfallbox/sticky-todo/releases/latest');
+        if (resp.ok) {
+          const data = await resp.json();
+          const latestTag = data.tag_name || '';
+          const latestVer = latestTag.replace(/^v/, '');
+          const curVer = '0.1.1';
+          const hasUp = compareSemver(latestVer, curVer) > 0;
+          result = {
+            success: true,
+            has_update: hasUp,
+            latest_version: latestVer,
+            release_url: data.html_url,
+            current_version: curVer
+          };
+        }
+      } catch (e) {
+        console.warn('Frontend fallback fetch failed:', e);
+      }
+    }
+
+    if (result && result.success) {
+      if (result.has_update) {
+        latestReleaseUrl = result.release_url || 'https://github.com/landfallbox/sticky-todo/releases';
+        if (updateStatusText) updateStatusText.textContent = `发现新版本 v${result.latest_version}！`;
+        btnCheckUpdate.textContent = '前往下载';
+        btnCheckUpdate.classList.add('btn-has-update');
+        btnCheckUpdate.disabled = false;
+      } else {
+        if (updateStatusText) updateStatusText.textContent = `当前已是最新版本 (v${result.current_version})`;
+        btnCheckUpdate.textContent = '已是最新';
+        setTimeout(() => {
+          btnCheckUpdate.textContent = '检查更新';
+          btnCheckUpdate.disabled = false;
+        }, 2500);
+      }
+    } else {
+      if (updateStatusText) updateStatusText.textContent = '检查失败，请检查网络';
+      btnCheckUpdate.textContent = '重试';
+      btnCheckUpdate.disabled = false;
+    }
+  } catch (err) {
+    console.error('Update check error:', err);
+    if (updateStatusText) updateStatusText.textContent = '检查失败，请稍后重试';
+    btnCheckUpdate.textContent = '重试';
+    btnCheckUpdate.disabled = false;
+  }
 }
 
 function setupDockListeners() {

@@ -33,19 +33,20 @@
 - ⚙️ **偏好设置与后台常驻**：
   - **开机自启动开关**：内置无权限门槛的开机自启切换（写入 `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`），电脑开机自动在后台就绪。
   - **窗口置顶切换**：可自由切换是否始终悬浮于其他窗口上方。
+  - **检查软件更新**：设置面板提供一键检测更新功能，自动比对 GitHub 最新发行版并提供一键跳转下载。
   - **优雅托盘托管**：点击右上角关闭按钮自动退至系统托盘，双击托盘图标即可随时唤起。
-- 📦 **免安装便携版 & 正式安装包**：
-  - 提供单文件免安装绿色版 `sticky-todo.exe`
-  - 提供现代 Windows 安装包 `Sticky Todo_0.1.0_x64-setup.exe`（支持开始菜单与桌面快捷方式）。
+- 📦 **云端 CI 自动构建 & 现代安装程序**：
+  - 由 GitHub Actions 全自动流水线在云端编译生成 Windows NSIS 安装包（Setup.exe）与免安装绿色版。
+  - 安装包自动部署并注册桌面与开始菜单快捷方式，支持系统一键卸载。
 
 ---
 
 ## 🚀 快速开始
 
-### 直接下载使用
+### 📥 从 GitHub Releases 下载安装（推荐）
 
-前往 [Releases 页面](https://github.com/landfallbox/sticky-todo/releases) 下载最新发行版：
-- **安装包（推荐）**：下载 `Sticky-Todo-Installer.exe`（或 `Sticky Todo_0.1.0_x64-setup.exe`），一键自动安装并创建开始菜单和桌面快捷方式。
+直接前往 [Releases 页面](https://github.com/landfallbox/sticky-todo/releases) 下载最新发行版：
+- **安装包（推荐）**：下载 `Sticky.Todo_x64-setup.exe`，一键自动安装并创建开始菜单和桌面快捷方式。
 - **免安装绿色版**：下载 `sticky-todo.exe`，解压即用。
 
 ---

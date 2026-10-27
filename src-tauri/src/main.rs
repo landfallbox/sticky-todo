@@ -234,6 +234,96 @@ fn set_autostart(enable: bool) -> Result<bool, String> {
     Ok(false)
 }
 
+#[derive(serde::Serialize)]
+struct UpdateCheckResult {
+    success: bool,
+    current_version: String,
+    latest_version: Option<String>,
+    release_url: Option<String>,
+    release_notes: Option<String>,
+    has_update: bool,
+    error: Option<String>,
+}
+
+fn is_newer_version(latest: &str, current: &str) -> bool {
+    let parse = |s: &str| -> Vec<u32> {
+        s.split('.')
+            .filter_map(|p| p.parse::<u32>().ok())
+            .collect()
+    };
+    let l_parts = parse(latest);
+    let c_parts = parse(current);
+    for i in 0..std::cmp::max(l_parts.len(), c_parts.len()) {
+        let l = l_parts.get(i).copied().unwrap_or(0);
+        let c = c_parts.get(i).copied().unwrap_or(0);
+        if l > c {
+            return true;
+        } else if l < c {
+            return false;
+        }
+    }
+    false
+}
+
+#[tauri::command]
+fn check_for_updates() -> UpdateCheckResult {
+    let current_version = env!("CARGO_PKG_VERSION").to_string();
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let output = std::process::Command::new("curl.exe")
+            .args(["-s", "--connect-timeout", "6", "https://api.github.com/repos/landfallbox/sticky-todo/releases/latest"])
+            .creation_flags(CREATE_NO_WINDOW)
+            .output();
+
+        if let Ok(out) = output {
+            if out.status.success() {
+                if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
+                    if let Some(tag) = json.get("tag_name").and_then(|v| v.as_str()) {
+                        let latest = tag.trim_start_matches('v').to_string();
+                        let html_url = json.get("html_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let body = json.get("body").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let has_update = is_newer_version(&latest, &current_version);
+                        return UpdateCheckResult {
+                            success: true,
+                            current_version,
+                            latest_version: Some(latest),
+                            release_url: Some(html_url),
+                            release_notes: Some(body),
+                            has_update,
+                            error: None,
+                        };
+                    }
+                }
+            }
+        }
+    }
+
+    UpdateCheckResult {
+        success: false,
+        current_version,
+        latest_version: None,
+        release_url: None,
+        release_notes: None,
+        has_update: false,
+        error: Some("网络请求超时或无法连接到 GitHub".into()),
+    }
+}
+
+#[tauri::command]
+fn open_external_url(url: String) {
+    #[cfg(target_os = "windows")]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x08000000;
+        let _ = std::process::Command::new("rundll32")
+            .args(["url.dll,FileProtocolHandler", &url])
+            .creation_flags(CREATE_NO_WINDOW)
+            .spawn();
+    }
+}
+
 fn animate_move(window: &WebviewWindow, target_x: i32, target_y: i32) {
     if IS_ANIMATING.swap(true, Ordering::SeqCst) {
         return;
@@ -610,6 +700,8 @@ fn main() {
             set_autostart,
             collapse_window,
             expand_window,
+            check_for_updates,
+            open_external_url,
         ])
         .run(tauri::generate_context!());
 

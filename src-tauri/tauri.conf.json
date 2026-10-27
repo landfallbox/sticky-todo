@@ -1,8 +1,8 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/dev/schemas/2.0.0/tauri.config.json",
   "productName": "Sticky Todo",
-  "version": "0.1.0",
-  "identifier": "com.stickytodo.app",
+  "version": "0.1.1",
+  "identifier": "com.stickytodo.desktop",
   "build": {
     "frontendDist": "../src"
   },
