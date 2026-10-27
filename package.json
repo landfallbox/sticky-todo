@@ -4,7 +4,8 @@
   "private": true,
   "description": "A lightweight sticky note TODO-list app",
   "scripts": {
-    "tauri": "tauri"
+    "tauri": "tauri",
+    "dev:isolated": "set STICKYTODO_DATA_DIR=%LOCALAPPDATA%\\StickyTodo-dev&& tauri dev"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.2.0"

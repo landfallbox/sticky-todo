@@ -69,6 +69,10 @@ cd sticky-todo
 # 开发模式（热重载）
 cargo tauri dev
 
+# 开发模式（数据隔离，推荐日常开发用）
+# 数据写入 %LOCALAPPDATA%\StickyTodo-dev，不会覆盖正式版的真实数据
+npm run dev:isolated
+
 # 编译生成独立发布版本
 cargo tauri build
 ```
