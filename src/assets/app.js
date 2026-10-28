@@ -34,6 +34,11 @@ const switchAutostart = document.getElementById('switch-autostart');
 const switchAlwaysOnTop = document.getElementById('switch-always-on-top');
 const btnCheckUpdate = document.getElementById('btn-check-update');
 const updateStatusText = document.getElementById('update-status-text');
+const themeSegmented = document.getElementById('theme-segmented');
+
+const THEME_KEY = 'sticky-todo:theme';
+const THEME_MODES = ['light', 'dark', 'system'];
+let systemDarkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 let todos = [];
 let dragSrcId = null;
@@ -61,9 +66,64 @@ async function init() {
     console.error('Failed to check autostart:', err);
   }
 
+  setupTheme();
   render();
   setupEventListeners();
   setupDockListeners();
+}
+
+// ── Theme ───────────────────────────────────────────
+
+function getStoredTheme() {
+  try {
+    const v = localStorage.getItem(THEME_KEY);
+    if (THEME_MODES.includes(v)) return v;
+  } catch (err) {
+    console.warn('Failed to read theme preference:', err);
+  }
+  return 'system';
+}
+
+function applyTheme(mode) {
+  const dark = mode === 'dark' || (mode === 'system' && systemDarkQuery.matches);
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+}
+
+function setTheme(mode) {
+  if (!THEME_MODES.includes(mode)) return;
+  try {
+    localStorage.setItem(THEME_KEY, mode);
+  } catch (err) {
+    console.warn('Failed to persist theme preference:', err);
+  }
+  applyTheme(mode);
+  syncThemeControl(mode);
+}
+
+function syncThemeControl(mode) {
+  if (!themeSegmented) return;
+  themeSegmented.querySelectorAll('button').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.themeMode === mode);
+  });
+}
+
+function setupTheme() {
+  const mode = getStoredTheme();
+  applyTheme(mode);
+  syncThemeControl(mode);
+
+  if (systemDarkQuery.addEventListener) {
+    systemDarkQuery.addEventListener('change', () => {
+      if (getStoredTheme() === 'system') applyTheme('system');
+    });
+  }
+
+  if (themeSegmented) {
+    themeSegmented.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-theme-mode]');
+      if (btn) setTheme(btn.dataset.themeMode);
+    });
+  }
 }
 
 // ── Event Listeners ─────────────────────────────────

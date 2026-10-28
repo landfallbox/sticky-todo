@@ -14,6 +14,8 @@ use todo_store::TodoStore;
 
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
+// Win32 FFI 类型名，保持与系统 API 一致
+#[allow(clippy::upper_case_acronyms)]
 struct POINT {
     x: i32,
     y: i32,
@@ -42,12 +44,7 @@ extern "system" {
         uIdSubclass: usize,
         dwRefData: usize,
     ) -> i32;
-    fn DefSubclassProc(
-        hwnd: *mut c_void,
-        uMsg: u32,
-        wParam: usize,
-        lParam: isize,
-    ) -> isize;
+    fn DefSubclassProc(hwnd: *mut c_void, uMsg: u32, wParam: usize, lParam: isize) -> isize;
 }
 
 #[cfg(target_os = "windows")]
@@ -148,7 +145,11 @@ fn reorder_todos(state: tauri::State<'_, AppState>, ids: Vec<String>) -> Vec<tod
 }
 
 #[tauri::command]
-fn edit_todo(state: tauri::State<'_, AppState>, id: String, text: String) -> Vec<todo_store::TodoItem> {
+fn edit_todo(
+    state: tauri::State<'_, AppState>,
+    id: String,
+    text: String,
+) -> Vec<todo_store::TodoItem> {
     let mut store = state.store.lock().unwrap();
     store.edit(&id, &text);
     store.items().to_vec()
@@ -171,8 +172,13 @@ fn show_window<R: Runtime>(window: WebviewWindow<R>) {
 }
 
 #[tauri::command]
-fn set_always_on_top<R: Runtime>(window: WebviewWindow<R>, always_on_top: bool) -> Result<(), String> {
-    window.set_always_on_top(always_on_top).map_err(|e| e.to_string())
+fn set_always_on_top<R: Runtime>(
+    window: WebviewWindow<R>,
+    always_on_top: bool,
+) -> Result<(), String> {
+    window
+        .set_always_on_top(always_on_top)
+        .map_err(|e| e.to_string())
 }
 
 #[tauri::command]
@@ -182,7 +188,12 @@ fn get_autostart() -> bool {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let output = std::process::Command::new("reg")
-            .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "StickyTodo"])
+            .args([
+                "query",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                "/v",
+                "StickyTodo",
+            ])
             .creation_flags(CREATE_NO_WINDOW)
             .output();
         matches!(output, Ok(out) if out.status.success())
@@ -193,6 +204,16 @@ fn get_autostart() -> bool {
 
 #[tauri::command]
 fn set_autostart(enable: bool) -> Result<bool, String> {
+    // 隔离开发模式（STICKYTODO_DATA_DIR 已设置）下禁止注册开机自启：
+    // 登录启动时不会携带该环境变量，debug exe 会直接读写正式版数据。
+    if enable
+        && std::env::var("STICKYTODO_DATA_DIR")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .is_some()
+    {
+        return Err("隔离开发模式下不支持开机自启，请先关闭隔离模式".into());
+    }
     #[cfg(target_os = "windows")]
     {
         use std::os::windows::process::CommandExt;
@@ -246,11 +267,8 @@ struct UpdateCheckResult {
 }
 
 fn is_newer_version(latest: &str, current: &str) -> bool {
-    let parse = |s: &str| -> Vec<u32> {
-        s.split('.')
-            .filter_map(|p| p.parse::<u32>().ok())
-            .collect()
-    };
+    let parse =
+        |s: &str| -> Vec<u32> { s.split('.').filter_map(|p| p.parse::<u32>().ok()).collect() };
     let l_parts = parse(latest);
     let c_parts = parse(current);
     for i in 0..std::cmp::max(l_parts.len(), c_parts.len()) {
@@ -273,7 +291,12 @@ fn check_for_updates() -> UpdateCheckResult {
         use std::os::windows::process::CommandExt;
         const CREATE_NO_WINDOW: u32 = 0x08000000;
         let output = std::process::Command::new("curl.exe")
-            .args(["-s", "--connect-timeout", "6", "https://api.github.com/repos/landfallbox/sticky-todo/releases/latest"])
+            .args([
+                "-s",
+                "--connect-timeout",
+                "6",
+                "https://api.github.com/repos/landfallbox/sticky-todo/releases/latest",
+            ])
             .creation_flags(CREATE_NO_WINDOW)
             .output();
 
@@ -282,8 +305,16 @@ fn check_for_updates() -> UpdateCheckResult {
                 if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&out.stdout) {
                     if let Some(tag) = json.get("tag_name").and_then(|v| v.as_str()) {
                         let latest = tag.trim_start_matches('v').to_string();
-                        let html_url = json.get("html_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
-                        let body = json.get("body").and_then(|v| v.as_str()).unwrap_or("").to_string();
+                        let html_url = json
+                            .get("html_url")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
+                        let body = json
+                            .get("body")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("")
+                            .to_string();
                         let has_update = is_newer_version(&latest, &current_version);
                         return UpdateCheckResult {
                             success: true,
@@ -407,7 +438,7 @@ fn handle_drag_ended(app: &tauri::AppHandle) {
     let mon_size = monitor.size();
 
     let threshold = 40; // pixels to snap
-    let strip = 16;     // pixels visible when collapsed (ensures 16px tab clearly sticks out from screen edge)
+    let strip = 16; // pixels visible when collapsed (ensures 16px tab clearly sticks out from screen edge)
 
     let wx = pos.x;
     let wy = pos.y;
@@ -419,40 +450,16 @@ fn handle_drag_ended(app: &tauri::AppHandle) {
 
     let (edge, exp_x, exp_y, col_x, col_y) = if wx - mx <= threshold {
         // Snap to Left Edge
-        (
-            DockEdge::Left,
-            mx,
-            wy,
-            mx - ww + strip,
-            wy,
-        )
+        (DockEdge::Left, mx, wy, mx - ww + strip, wy)
     } else if (mx + mw) - (wx + ww) <= threshold {
         // Snap to Right Edge
-        (
-            DockEdge::Right,
-            mx + mw - ww,
-            wy,
-            mx + mw - strip,
-            wy,
-        )
+        (DockEdge::Right, mx + mw - ww, wy, mx + mw - strip, wy)
     } else if wy - my <= threshold {
         // Snap to Top Edge
-        (
-            DockEdge::Top,
-            wx,
-            my,
-            wx,
-            my - wh + strip,
-        )
+        (DockEdge::Top, wx, my, wx, my - wh + strip)
     } else {
         // Not near any edge
-        (
-            DockEdge::None,
-            wx,
-            wy,
-            wx,
-            wy,
-        )
+        (DockEdge::None, wx, wy, wx, wy)
     };
 
     let state = app.state::<AppState>();
@@ -472,20 +479,26 @@ fn handle_drag_ended(app: &tauri::AppHandle) {
     if edge != DockEdge::None {
         // Snap flush to edge immediately
         let _ = win.set_position(PhysicalPosition::new(exp_x, exp_y));
-        let _ = win.emit("dock-changed", serde_json::json!({
-            "docked": true,
-            "edge": match edge {
-                DockEdge::Left => "left",
-                DockEdge::Right => "right",
-                DockEdge::Top => "top",
-                DockEdge::None => "none",
-            }
-        }));
+        let _ = win.emit(
+            "dock-changed",
+            serde_json::json!({
+                "docked": true,
+                "edge": match edge {
+                    DockEdge::Left => "left",
+                    DockEdge::Right => "right",
+                    DockEdge::Top => "top",
+                    DockEdge::None => "none",
+                }
+            }),
+        );
     } else {
-        let _ = win.emit("dock-changed", serde_json::json!({
-            "docked": false,
-            "edge": "none"
-        }));
+        let _ = win.emit(
+            "dock-changed",
+            serde_json::json!({
+                "docked": false,
+                "edge": "none"
+            }),
+        );
     }
 }
 

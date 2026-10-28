@@ -20,9 +20,17 @@ pub struct TodoStore {
 
 impl TodoStore {
     /// Return the path to the data file.
+    ///
+    /// The directory can be overridden via the `STICKYTODO_DATA_DIR`
+    /// environment variable (used by `npm run dev:isolated` so dev builds
+    /// never touch the real data). Falls back to `%LOCALAPPDATA%/StickyTodo`.
     fn data_path() -> PathBuf {
         let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-        let dir = base.join("StickyTodo");
+        let dir = std::env::var("STICKYTODO_DATA_DIR")
+            .ok()
+            .filter(|v| !v.trim().is_empty())
+            .map(PathBuf::from)
+            .unwrap_or_else(|| base.join("StickyTodo"));
         fs::create_dir_all(&dir).ok();
         dir.join("todos.json")
     }
