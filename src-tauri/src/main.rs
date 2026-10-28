@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod todo_store;
+mod window_state;
 
 use std::ffi::c_void;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -8,9 +9,10 @@ use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Emitter, Manager, PhysicalPosition, Runtime, WebviewWindow,
+    Emitter, Manager, PhysicalPosition, PhysicalSize, Runtime, WebviewWindow,
 };
 use todo_store::TodoStore;
+use window_state::{DockEdge, WindowState};
 
 #[repr(C)]
 #[derive(Debug, Default, Copy, Clone)]
@@ -64,14 +66,6 @@ static IS_ANIMATING: AtomicBool = AtomicBool::new(false);
 
 fn ease_out_cubic(t: f32) -> f32 {
     1.0 - (1.0 - t).powi(3)
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum DockEdge {
-    None,
-    Left,
-    Right,
-    Top,
 }
 
 #[derive(Debug, Clone)]
@@ -161,7 +155,8 @@ fn minimize_window<R: Runtime>(window: WebviewWindow<R>) {
 }
 
 #[tauri::command]
-fn hide_window<R: Runtime>(window: WebviewWindow<R>) {
+fn hide_window<R: Runtime>(window: WebviewWindow<R>, state: tauri::State<'_, AppState>) {
+    persist_position(&window, &state);
     let _ = window.hide();
 }
 
@@ -413,6 +408,171 @@ fn expand_window(state: tauri::State<'_, AppState>, app: tauri::AppHandle) {
     }
 }
 
+// ── Window State Persistence & Restore ──────────────────────────────────────
+
+/// Pixels of the docked window left visible when collapsed.
+const DOCK_STRIP: i32 = 16;
+
+/// Minimum overlap (px, each axis) the saved expanded rect must have with a
+/// current monitor to be considered restorable.
+const MIN_VISIBLE: i32 = 60;
+
+/// Minimum window size, mirroring minWidth/minHeight in tauri.conf.json.
+const MIN_WIDTH: i32 = 280;
+const MIN_HEIGHT: i32 = 300;
+
+/// Compute expanded and collapsed positions for a docked window.
+///
+/// The expanded position is snapped flush to the screen edge; the collapsed
+/// position keeps `DOCK_STRIP` pixels visible. `exp_x`/`exp_y` are the
+/// window's current (unsnapped) position, used for the axis the edge does
+/// not constrain.
+fn dock_geometry(
+    edge: DockEdge,
+    exp_x: i32,
+    exp_y: i32,
+    width: i32,
+    height: i32,
+    mon: &tauri::Monitor,
+) -> (i32, i32, i32, i32) {
+    let mx = mon.position().x;
+    let my = mon.position().y;
+    let mw = mon.size().width as i32;
+    match edge {
+        DockEdge::Left => (mx, exp_y, mx - width + DOCK_STRIP, exp_y),
+        DockEdge::Right => (mx + mw - width, exp_y, mx + mw - DOCK_STRIP, exp_y),
+        DockEdge::Top => (exp_x, my, exp_x, my - height + DOCK_STRIP),
+        DockEdge::None => (exp_x, exp_y, exp_x, exp_y),
+    }
+}
+
+/// Persist the window state to restore on next launch.
+///
+/// Docked: saves the expanded position plus the current collapse state.
+/// Not docked: saves the live outer position/size.
+fn persist_position<R: Runtime>(window: &WebviewWindow<R>, state: &AppState) {
+    let ws = {
+        let dock = state.dock.lock().unwrap();
+        if dock.edge != DockEdge::None {
+            WindowState {
+                x: dock.exp_x,
+                y: dock.exp_y,
+                width: dock.width,
+                height: dock.height,
+                edge: dock.edge,
+                collapsed: dock.is_collapsed,
+            }
+        } else {
+            match (window.outer_position(), window.outer_size()) {
+                (Ok(p), Ok(s)) => WindowState {
+                    x: p.x,
+                    y: p.y,
+                    width: s.width as i32,
+                    height: s.height as i32,
+                    edge: DockEdge::None,
+                    collapsed: false,
+                },
+                _ => return,
+            }
+        }
+    };
+    WindowState::save(&ws);
+}
+
+/// Find the monitor on which the saved expanded rect is meaningfully visible.
+fn monitor_for_state(app: &tauri::AppHandle, saved: &WindowState) -> Option<tauri::Monitor> {
+    let monitors = app.available_monitors().ok()?;
+    monitors.into_iter().find(|m| {
+        let (mx, my) = (m.position().x, m.position().y);
+        let (mw, mh) = (m.size().width as i32, m.size().height as i32);
+        let overlap_w = (saved.x + saved.width)
+            .min(mx + mw)
+            .saturating_sub(saved.x.max(mx));
+        let overlap_h = (saved.y + saved.height)
+            .min(my + mh)
+            .saturating_sub(saved.y.max(my));
+        overlap_w >= MIN_VISIBLE && overlap_h >= MIN_VISIBLE
+    })
+}
+
+/// Restore the persisted window state (position, size, dock edge, collapse).
+///
+/// Returns true if the state was applied; false when the caller should fall
+/// back to centering.
+fn restore_window_state(app: &tauri::AppHandle, win: &WebviewWindow) -> bool {
+    let saved = match WindowState::load() {
+        Some(s) => s,
+        None => return false,
+    };
+
+    // The expanded rect must still be visible on a current monitor.
+    let monitor = match monitor_for_state(app, &saved) {
+        Some(m) => m,
+        None => return false,
+    };
+
+    let width = saved.width.max(MIN_WIDTH);
+    let height = saved.height.max(MIN_HEIGHT);
+    let collapsed = saved.collapsed && saved.edge != DockEdge::None;
+
+    // Re-derive dock geometry from the current monitor layout so a changed
+    // display configuration cannot leave the strip in the wrong place.
+    let (exp_x, exp_y, col_x, col_y) =
+        dock_geometry(saved.edge, saved.x, saved.y, width, height, &monitor);
+    let (pos_x, pos_y) = if collapsed {
+        (col_x, col_y)
+    } else {
+        (exp_x, exp_y)
+    };
+
+    // Write the dock state back so the cursor watcher (hover expand / auto
+    // collapse) immediately works with the restored geometry.
+    {
+        let state = app.state::<AppState>();
+        let mut dock = state.dock.lock().unwrap();
+        dock.edge = saved.edge;
+        dock.is_collapsed = collapsed;
+        dock.exp_x = exp_x;
+        dock.exp_y = exp_y;
+        dock.col_x = col_x;
+        dock.col_y = col_y;
+        dock.width = width;
+        dock.height = height;
+        dock.last_outside_time = None;
+    }
+
+    // Size first: Windows keeps the top-left corner fixed on resize, so the
+    // following set_position lands exactly where intended.
+    let _ = win.set_size(PhysicalSize::new(width, height));
+    let _ = win.set_position(PhysicalPosition::new(pos_x, pos_y));
+    true
+}
+
+/// Current dock/collapse state, pulled by the frontend at startup so the
+/// edge strip renders correctly after a relaunch (events emitted during
+/// setup would be lost before the webview's JS is ready).
+#[derive(serde::Serialize)]
+struct DockStatePayload {
+    docked: bool,
+    edge: &'static str,
+    collapsed: bool,
+}
+
+#[tauri::command]
+fn get_dock_state(state: tauri::State<'_, AppState>) -> DockStatePayload {
+    let dock = state.dock.lock().unwrap();
+    DockStatePayload {
+        docked: dock.edge != DockEdge::None,
+        edge: match dock.edge {
+            DockEdge::Left => "left",
+            DockEdge::Right => "right",
+            DockEdge::Top => "top",
+            DockEdge::None => "none",
+        },
+        collapsed: dock.is_collapsed,
+    }
+}
+
 // ── Edge Docking Detection on Drag End ──────────────────────────────────────
 
 fn handle_drag_ended(app: &tauri::AppHandle) {
@@ -434,33 +594,30 @@ fn handle_drag_ended(app: &tauri::AppHandle) {
         _ => return,
     };
 
-    let mon_pos = monitor.position();
-    let mon_size = monitor.size();
-
     let threshold = 40; // pixels to snap
-    let strip = 16; // pixels visible when collapsed (ensures 16px tab clearly sticks out from screen edge)
 
     let wx = pos.x;
     let wy = pos.y;
     let ww = size.width as i32;
     let wh = size.height as i32;
-    let mx = mon_pos.x;
-    let my = mon_pos.y;
-    let mw = mon_size.width as i32;
+    let mx = monitor.position().x;
+    let my = monitor.position().y;
+    let mw = monitor.size().width as i32;
 
-    let (edge, exp_x, exp_y, col_x, col_y) = if wx - mx <= threshold {
+    let edge = if wx - mx <= threshold {
         // Snap to Left Edge
-        (DockEdge::Left, mx, wy, mx - ww + strip, wy)
+        DockEdge::Left
     } else if (mx + mw) - (wx + ww) <= threshold {
         // Snap to Right Edge
-        (DockEdge::Right, mx + mw - ww, wy, mx + mw - strip, wy)
+        DockEdge::Right
     } else if wy - my <= threshold {
         // Snap to Top Edge
-        (DockEdge::Top, wx, my, wx, my - wh + strip)
+        DockEdge::Top
     } else {
         // Not near any edge
-        (DockEdge::None, wx, wy, wx, wy)
+        DockEdge::None
     };
+    let (exp_x, exp_y, col_x, col_y) = dock_geometry(edge, wx, wy, ww, wh, &monitor);
 
     let state = app.state::<AppState>();
     {
@@ -500,6 +657,8 @@ fn handle_drag_ended(app: &tauri::AppHandle) {
             }),
         );
     }
+
+    persist_position(&win, &state);
 }
 
 // ── Win32 Subclass Procedure ────────────────────────────────────────────────
@@ -689,7 +848,12 @@ fn main() {
                     }
                 }
 
-                let _ = win.center();
+                // Restore the persisted position/size/dock state; fall back
+                // to centering when there is no valid saved state (e.g. the
+                // monitor it was on is gone).
+                if !restore_window_state(app.handle(), &win) {
+                    let _ = win.center();
+                }
                 let _ = win.show();
                 let _ = win.set_focus();
             }
@@ -713,6 +877,7 @@ fn main() {
             set_autostart,
             collapse_window,
             expand_window,
+            get_dock_state,
             check_for_updates,
             open_external_url,
         ])

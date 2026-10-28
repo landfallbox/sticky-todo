@@ -70,6 +70,7 @@ async function init() {
   render();
   setupEventListeners();
   setupDockListeners();
+  restoreDockState();
 }
 
 // ── Theme ───────────────────────────────────────────
@@ -266,6 +267,24 @@ async function handleCheckUpdate() {
     if (updateStatusText) updateStatusText.textContent = '检查失败，请稍后重试';
     btnCheckUpdate.textContent = '重试';
     btnCheckUpdate.disabled = false;
+  }
+}
+
+// Pull the persisted dock/collapse state so the edge strip renders
+// correctly after a relaunch (events emitted during setup are lost before
+// this script runs).
+async function restoreDockState() {
+  try {
+    const { docked, edge, collapsed } = await invoke('get_dock_state');
+    document.body.classList.remove('docked', 'dock-left', 'dock-right', 'dock-top', 'collapsed');
+    if (docked) {
+      document.body.classList.add('docked', `dock-${edge}`);
+    }
+    if (collapsed) {
+      document.body.classList.add('collapsed');
+    }
+  } catch (err) {
+    console.error('Failed to restore dock state:', err);
   }
 }
 
