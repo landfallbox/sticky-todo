@@ -178,7 +178,12 @@ body.collapsed {
 #todo-input {
   flex: 1;
   height: 36px;
-  padding: 0 14px;
+  min-height: 36px;
+  max-height: 90px;
+  overflow-y: auto;
+  resize: none;
+  padding: 7px 14px;
+  line-height: 1.4;
   border: 1px solid var(--border-strong);
   border-bottom: 2px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -198,6 +203,21 @@ body.collapsed {
 
 #todo-input::placeholder {
   color: var(--text-tertiary);
+}
+
+/* 细滚动条（内容超过 4 行时出现） */
+#todo-input::-webkit-scrollbar,
+.todo-edit-input::-webkit-scrollbar {
+  width: 4px;
+}
+#todo-input::-webkit-scrollbar-track,
+.todo-edit-input::-webkit-scrollbar-track {
+  background: transparent;
+}
+#todo-input::-webkit-scrollbar-thumb,
+.todo-edit-input::-webkit-scrollbar-thumb {
+  background: var(--border-strong);
+  border-radius: 2px;
 }
 
 #btn-add {
@@ -288,7 +308,7 @@ body.collapsed {
 
 .todo-item {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 10px;
   padding: 10px 12px;
   margin-bottom: 4px;
@@ -336,6 +356,7 @@ body.collapsed {
 .todo-checkbox {
   width: 20px;
   height: 20px;
+  margin-top: 2px;
   border-radius: 50%;
   border: 2px solid var(--border-strong);
   display: flex;
@@ -376,6 +397,7 @@ body.collapsed {
   line-height: 1.4;
   color: var(--text-primary);
   word-break: break-word;
+  white-space: pre-wrap;
   min-width: 0;
 }
 
@@ -392,12 +414,16 @@ body.collapsed {
   padding: 2px 0;
   font-family: inherit;
   min-width: 0;
+  resize: none;
+  max-height: 90px;
+  overflow-y: auto;
 }
 
 /* Edit button */
 .todo-edit {
   width: 24px;
   height: 24px;
+  margin-top: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -428,6 +454,7 @@ body.collapsed {
 .todo-delete {
   width: 24px;
   height: 24px;
+  margin-top: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
