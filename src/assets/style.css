@@ -178,6 +178,7 @@ body.collapsed {
 #todo-input {
   flex: 1;
   height: 36px;
+  min-height: 36px;
   max-height: 90px;
   overflow-y: auto;
   resize: none;

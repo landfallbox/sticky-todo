@@ -132,7 +132,7 @@ function setupEventListeners() {
   // Add todo
   btnAdd.addEventListener('click', addTodo);
   todoInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       addTodo();
     }
@@ -387,7 +387,7 @@ async function editTodo(id) {
   input.addEventListener('blur', finish);
   input.addEventListener('input', () => autoResize(input));
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
       e.preventDefault();
       input.blur();
     }

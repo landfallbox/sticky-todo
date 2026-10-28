@@ -36,13 +36,13 @@
    ```
    （执行中发现：`box-sizing: border-box` 下 `scrollHeight` 不含边框，需补边框宽度，否则 2 行内容时右侧出现微小滚动条）
 2. `setupEventListeners()`（约 L134）：
-   - keydown：`if (e.key === 'Enter') addTodo()` → `if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addTodo(); }`（textarea 的 Enter 默认会插入换行，必须 preventDefault，否则提交后残留 `\n`——执行中发现并修正）
+   - keydown：`if (e.key === 'Enter') addTodo()` → `if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); addTodo(); }`（textarea 的 Enter 默认会插入换行，必须 preventDefault，否则提交后残留 `\n`——执行中发现并修正；`!e.isComposing` 防止中文输入法合成期按 Enter 确认候选词时误提交——PR 评审后补充）
    - 新增 `todoInput.addEventListener('input', () => autoResize(todoInput))`
 3. `addTodo()`（约 L316）：`todoInput.value = ''` 后补 `autoResize(todoInput)`（高度回落 36px）
 4. `editTodo()`（约 L349）：
    - `document.createElement('input')` → `document.createElement('textarea')`，`rows = 1`、`spellcheck = false`，去掉 `input.type = 'text'`
    - `textSpan.replaceWith(input)` 后补 `autoResize(input)`（按已有内容撑开）
-   - keydown：`if (e.key === 'Enter') input.blur()` → `if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); input.blur(); }`（同上，需 preventDefault）
+   - keydown：`if (e.key === 'Enter') input.blur()` → `if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); input.blur(); }`（同上，需 preventDefault 与 IME 守卫）
    - 新增 `input.addEventListener('input', () => autoResize(input))`
    - `input.select()` 对 textarea 同样有效，保留
 
