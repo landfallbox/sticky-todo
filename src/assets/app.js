@@ -128,6 +128,10 @@ function setupTheme() {
 
 // ── Event Listeners ─────────────────────────────────
 
+/**
+ * 绑定添加框、窗口控制、主题与拖拽等全局事件。
+ * 添加框 Enter 提交（Shift+Enter 换行、IME 合成期不触发），input 事件触发高度自适应。
+ */
 function setupEventListeners() {
   // Add todo
   btnAdd.addEventListener('click', addTodo);
@@ -318,6 +322,10 @@ function setupDockListeners() {
 // ── Todo Operations ─────────────────────────────────
 
 const INPUT_MAX_HEIGHT = 90;
+/**
+ * 自适应输入框高度：随内容行数增长，上限 INPUT_MAX_HEIGHT（超出滚动）。
+ * @param {HTMLTextAreaElement} el 目标 textarea
+ */
 function autoResize(el) {
   el.style.height = 'auto';
   const cs = getComputedStyle(el);
@@ -325,6 +333,9 @@ function autoResize(el) {
   el.style.height = Math.min(el.scrollHeight + border, INPUT_MAX_HEIGHT) + 'px';
 }
 
+/**
+ * 提交添加框内容：调用 add_todo 创建待办，清空输入框并回落高度。
+ */
 async function addTodo() {
   const text = todoInput.value.trim();
   if (!text) {
@@ -359,6 +370,10 @@ async function deleteTodo(id) {
   render();
 }
 
+/**
+ * 将指定待办切换为内联编辑：textarea 按内容撑高，Enter 保存、Shift+Enter 换行、Esc 取消。
+ * @param {string} id 待办 ID
+ */
 async function editTodo(id) {
   const item = todos.find(t => t.id === id);
   if (!item) return;
