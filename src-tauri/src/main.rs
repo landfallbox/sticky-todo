@@ -483,15 +483,19 @@ fn persist_position<R: Runtime>(window: &WebviewWindow<R>, state: &AppState) {
 fn monitor_for_state(app: &tauri::AppHandle, saved: &WindowState) -> Option<tauri::Monitor> {
     let monitors = app.available_monitors().ok()?;
     monitors.into_iter().find(|m| {
-        let (mx, my) = (m.position().x, m.position().y);
-        let (mw, mh) = (m.size().width as i32, m.size().height as i32);
-        let overlap_w = (saved.x + saved.width)
-            .min(mx + mw)
-            .saturating_sub(saved.x.max(mx));
-        let overlap_h = (saved.y + saved.height)
-            .min(my + mh)
-            .saturating_sub(saved.y.max(my));
-        overlap_w >= MIN_VISIBLE && overlap_h >= MIN_VISIBLE
+        // i64: saved values come from an on-disk JSON and must not be able
+        // to overflow the arithmetic (a debug-build panic would kill startup).
+        let (mx, my) = (m.position().x as i64, m.position().y as i64);
+        let (mw, mh) = (m.size().width as i64, m.size().height as i64);
+        let (sx, sy, sw, sh) = (
+            saved.x as i64,
+            saved.y as i64,
+            saved.width as i64,
+            saved.height as i64,
+        );
+        let overlap_w = (sx + sw).min(mx + mw).saturating_sub(sx.max(mx));
+        let overlap_h = (sy + sh).min(my + mh).saturating_sub(sy.max(my));
+        overlap_w >= MIN_VISIBLE as i64 && overlap_h >= MIN_VISIBLE as i64
     })
 }
 
@@ -511,8 +515,13 @@ fn restore_window_state(app: &tauri::AppHandle, win: &WebviewWindow) -> bool {
         None => return false,
     };
 
-    let width = saved.width.max(MIN_WIDTH);
-    let height = saved.height.max(MIN_HEIGHT);
+    // Clamp to the monitor so a window larger than the screen (e.g. after a
+    // monitor swap) cannot be docked partly off-screen; keep the minimum when
+    // the monitor itself is smaller than it.
+    let mon_w = monitor.size().width as i32;
+    let mon_h = monitor.size().height as i32;
+    let width = saved.width.max(MIN_WIDTH).min(mon_w.max(MIN_WIDTH));
+    let height = saved.height.max(MIN_HEIGHT).min(mon_h.max(MIN_HEIGHT));
     let collapsed = saved.collapsed && saved.edge != DockEdge::None;
 
     // Re-derive dock geometry from the current monitor layout so a changed
@@ -525,26 +534,29 @@ fn restore_window_state(app: &tauri::AppHandle, win: &WebviewWindow) -> bool {
         (exp_x, exp_y)
     };
 
-    // Write the dock state back so the cursor watcher (hover expand / auto
-    // collapse) immediately works with the restored geometry.
-    {
-        let state = app.state::<AppState>();
-        let mut dock = state.dock.lock().unwrap();
-        dock.edge = saved.edge;
-        dock.is_collapsed = collapsed;
-        dock.exp_x = exp_x;
-        dock.exp_y = exp_y;
-        dock.col_x = col_x;
-        dock.col_y = col_y;
-        dock.width = width;
-        dock.height = height;
-        dock.last_outside_time = None;
-    }
-
     // Size first: Windows keeps the top-left corner fixed on resize, so the
     // following set_position lands exactly where intended.
-    let _ = win.set_size(PhysicalSize::new(width, height));
-    let _ = win.set_position(PhysicalPosition::new(pos_x, pos_y));
+    if win.set_size(PhysicalSize::new(width, height)).is_err()
+        || win
+            .set_position(PhysicalPosition::new(pos_x, pos_y))
+            .is_err()
+    {
+        return false;
+    }
+
+    // Write the dock state back so the cursor watcher (hover expand / auto
+    // collapse) immediately works with the restored geometry.
+    let state = app.state::<AppState>();
+    let mut dock = state.dock.lock().unwrap();
+    dock.edge = saved.edge;
+    dock.is_collapsed = collapsed;
+    dock.exp_x = exp_x;
+    dock.exp_y = exp_y;
+    dock.col_x = col_x;
+    dock.col_y = col_y;
+    dock.width = width;
+    dock.height = height;
+    dock.last_outside_time = None;
     true
 }
 
@@ -804,6 +816,18 @@ fn main() {
         .manage(AppState {
             store: Mutex::new(store),
             dock: Mutex::new(DockInfo::default()),
+        })
+        .on_window_event(|window, event| {
+            // OS-initiated close (Alt+F4, taskbar) skips hide_window; persist
+            // the position/size before the window is destroyed.
+            if window.label() == "main"
+                && matches!(event, tauri::WindowEvent::CloseRequested { .. })
+            {
+                let app = window.app_handle();
+                if let Some(win) = app.get_webview_window("main") {
+                    persist_position(&win, &app.state::<AppState>());
+                }
+            }
         })
         .setup(|app| {
             APP_HANDLE.set(app.handle().clone()).ok();

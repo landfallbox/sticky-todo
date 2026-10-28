@@ -122,6 +122,17 @@
 
 **已知边界**：`monitor_for_state` 的显示器匹配采用"展开矩形与显示器重叠两向均 ≥ 60px"启发式，多显示器且窗口恰好跨屏时可能匹配到相邻显示器（随后由 `clamp_to_monitor` 兜底），不影响可用性。
 
+### CodeRabbit 审查意见处理（PR #5，2026-10-28）
+
+| 意见 | 处理 |
+|------|------|
+| `monitor_for_state` 重叠计算可能 i32 溢出（debug 构建 panic） | 已修：坐标运算全部加宽为 i64 |
+| 恢复尺寸未钳制到显示器（大屏窗口换小屏后停靠到屏幕外） | 已修：宽/高钳制到所选显示器（显示器本身小于最小值时保留最小值） |
+| `set_size`/`set_position` 失败未检查，`AppState.dock` 先于实际生效被写入 | 已修：先应用尺寸/位置，任一失败返回 false（回退居中）；成功后才写回 dock 状态 |
+| OS 关闭（Alt+F4/任务栏）绕过 `hide_window`，未落盘 | 已修：`on_window_event` 监听 `CloseRequested`，销毁前调用同一 `persist_position` |
+
+修复后重新验证：`cargo build` / `cargo fmt --check` / `cargo clippy --all-targets -- -D warnings` 全部通过。
+
 ### 手动验证（`npm run tauri dev`，待用户执行）
   1. 拖动窗口到任意位置 → 关闭（hide）→ 重启 → 窗口回到上次位置。
   2. 缩放窗口 → 关闭 → 重启 → 大小也恢复。
