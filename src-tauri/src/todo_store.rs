@@ -12,6 +12,22 @@ pub struct TodoItem {
     pub created_at: u64,
 }
 
+/// The data directory holding app state files.
+///
+/// Can be overridden via the `STICKYTODO_DATA_DIR` environment variable
+/// (used by `npm run dev:isolated` so dev builds never touch the real
+/// data). Falls back to `%LOCALAPPDATA%/StickyTodo`.
+pub fn data_dir() -> PathBuf {
+    let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
+    let dir = std::env::var("STICKYTODO_DATA_DIR")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .map(PathBuf::from)
+        .unwrap_or_else(|| base.join("StickyTodo"));
+    fs::create_dir_all(&dir).ok();
+    dir
+}
+
 /// Simple JSON-file backed store.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TodoStore {
@@ -20,19 +36,8 @@ pub struct TodoStore {
 
 impl TodoStore {
     /// Return the path to the data file.
-    ///
-    /// The directory can be overridden via the `STICKYTODO_DATA_DIR`
-    /// environment variable (used by `npm run dev:isolated` so dev builds
-    /// never touch the real data). Falls back to `%LOCALAPPDATA%/StickyTodo`.
     fn data_path() -> PathBuf {
-        let base = dirs::data_local_dir().unwrap_or_else(|| PathBuf::from("."));
-        let dir = std::env::var("STICKYTODO_DATA_DIR")
-            .ok()
-            .filter(|v| !v.trim().is_empty())
-            .map(PathBuf::from)
-            .unwrap_or_else(|| base.join("StickyTodo"));
-        fs::create_dir_all(&dir).ok();
-        dir.join("todos.json")
+        data_dir().join("todos.json")
     }
 
     /// Load from disk, or return empty store.

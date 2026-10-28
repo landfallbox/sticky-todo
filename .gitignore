@@ -1,6 +1,7 @@
 # Rust / Cargo
 /src-tauri/target
 Cargo.lock
+/src-tauri/gen
 
 # Node / JS
 node_modules/
