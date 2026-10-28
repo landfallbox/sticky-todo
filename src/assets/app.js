@@ -132,8 +132,12 @@ function setupEventListeners() {
   // Add todo
   btnAdd.addEventListener('click', addTodo);
   todoInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') addTodo();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      addTodo();
+    }
   });
+  todoInput.addEventListener('input', () => autoResize(todoInput));
 
   // Window controls
   btnMinimize.addEventListener('click', () => invoke('minimize_window'));
@@ -313,6 +317,14 @@ function setupDockListeners() {
 
 // ── Todo Operations ─────────────────────────────────
 
+const INPUT_MAX_HEIGHT = 90;
+function autoResize(el) {
+  el.style.height = 'auto';
+  const cs = getComputedStyle(el);
+  const border = parseFloat(cs.borderTopWidth) + parseFloat(cs.borderBottomWidth);
+  el.style.height = Math.min(el.scrollHeight + border, INPUT_MAX_HEIGHT) + 'px';
+}
+
 async function addTodo() {
   const text = todoInput.value.trim();
   if (!text) {
@@ -322,6 +334,7 @@ async function addTodo() {
 
   todos = (await invoke('add_todo', { text })) || [];
   todoInput.value = '';
+  autoResize(todoInput);
   todoInput.focus();
   render();
 
@@ -353,11 +366,13 @@ async function editTodo(id) {
   const el = document.querySelector(`[data-id="${id}"]`);
   const textSpan = el.querySelector('.todo-text');
 
-  const input = document.createElement('input');
-  input.type = 'text';
+  const input = document.createElement('textarea');
+  input.rows = 1;
+  input.spellcheck = false;
   input.className = 'todo-edit-input';
   input.value = item.text;
   textSpan.replaceWith(input);
+  autoResize(input);
   input.focus();
   input.select();
 
@@ -370,8 +385,12 @@ async function editTodo(id) {
   };
 
   input.addEventListener('blur', finish);
+  input.addEventListener('input', () => autoResize(input));
   input.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') input.blur();
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      input.blur();
+    }
     if (e.key === 'Escape') {
       input.value = item.text;
       input.blur();
