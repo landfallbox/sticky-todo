@@ -75,7 +75,7 @@ changelog 在开头（用户已确认），下载说明在后（沿用现有文�
 | 完整 changelog | `git-cliff` 全量输出 `CHANGELOG.md` | ① 作为仓库文件提交回 main ② 版本历史留档 |
 | release body | step output（多行，heredoc 方式写入 `$env:GITHUB_OUTPUT`） | `tauri-action` 的 `releaseBody` 输入 |
 
-**不受影响的数据流**：应用内更新检查只读 `releases/latest` 的 `tag_name` 与 `html_url`（[app.js](../../src/assets/app.js) 第 233-256 行），不解析 notes 正文，notes 结构变化对它透明。
+**不受影响的数据流**：应用内更新检查只读 `releases/latest` 的 `tag_name` 与 `html_url`（[app.js](../../../src/assets/app.js) 第 233-256 行），不解析 notes 正文，notes 结构变化对它透明。
 
 ## 3. 影响哪些系统
 

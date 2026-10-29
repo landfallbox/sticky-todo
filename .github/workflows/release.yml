@@ -46,8 +46,20 @@ jobs:
 
       - name: Generate changelog
         run: |
+          $ErrorActionPreference = 'Stop'
           git-cliff -o CHANGELOG.md
-          git-cliff --latest --strip header -o RELEASE_NOTES.md
+          if ($LASTEXITCODE -ne 0) { throw "git-cliff (full) failed with exit code $LASTEXITCODE" }
+          # 用显式区间生成当前 tag 的 release notes；首个 tag 无 prev-tag 时回退 --latest
+          $tag = if ("${{ github.ref_name }}".StartsWith("v")) { "${{ github.ref_name }}" } else { "${{ inputs.tag_name }}" }
+          $prevTag = git describe --tags --abbrev=0 "$tag^" 2>$null
+          if ($LASTEXITCODE -eq 0 -and $prevTag) {
+            Write-Output "Generating release notes for range $prevTag..$tag"
+            git-cliff "$prevTag..$tag" --strip header -o RELEASE_NOTES.md
+          } else {
+            Write-Output "No previous tag found, using --latest for release notes"
+            git-cliff --latest --strip header -o RELEASE_NOTES.md
+          }
+          if ($LASTEXITCODE -ne 0) { throw "git-cliff (release notes) failed with exit code $LASTEXITCODE" }
           Write-Output "===== CHANGELOG.md ====="
           Get-Content CHANGELOG.md -Encoding utf8
           Write-Output "===== RELEASE_NOTES.md ====="
@@ -106,7 +118,8 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          Copy-Item CHANGELOG.md "$env:RUNNER_TEMP/CHANGELOG.md"
+          # 移走生成的 CHANGELOG.md（tag 不跟踪它），否则 checkout 到跟踪该文件的 main 会因未跟踪文件冲突而中止
+          Move-Item -Force CHANGELOG.md "$env:RUNNER_TEMP/CHANGELOG.md"
           git fetch origin main
           git checkout -B main origin/main
           Move-Item -Force "$env:RUNNER_TEMP/CHANGELOG.md" CHANGELOG.md
