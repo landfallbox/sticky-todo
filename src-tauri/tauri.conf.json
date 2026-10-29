@@ -1,10 +1,18 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicedoc/tauri/dev/schemas/2.0.0/tauri.config.json",
   "productName": "Sticky Todo",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "identifier": "com.stickytodo.desktop",
   "build": {
     "frontendDist": "../src"
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/landfallbox/sticky-todo/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDlFQUM0OTQwMzE5QUNFNzMKUldSenpwb3hRRW1zbmp2OVB5WDJ0UldTQm5Da2RWbmFZQkV2c0ZndVpyak5SbXhTbG0yVU1vUjMK"
+    }
   },
   "app": {
     "withGlobalTauri": true,
@@ -32,6 +40,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/icon.png",

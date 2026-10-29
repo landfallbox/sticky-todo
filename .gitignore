@@ -9,9 +9,9 @@ node_modules/
 # Logs & temp files
 *.log
 *.tmp
+tmp/
 run_log.txt
 app_debug.log
-tmp/
 
 # OS generated
 .DS_Store
@@ -20,4 +20,9 @@ Thumbs.db
 # Archives
 *.zip
 dist/
+
+# Tauri updater signing key (keep secret, never commit)
+tauri-updater.key
+tauri-updater.key.pub
+*.key
 

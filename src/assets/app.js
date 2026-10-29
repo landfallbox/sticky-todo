@@ -34,6 +34,9 @@ const switchAutostart = document.getElementById('switch-autostart');
 const switchAlwaysOnTop = document.getElementById('switch-always-on-top');
 const btnCheckUpdate = document.getElementById('btn-check-update');
 const updateStatusText = document.getElementById('update-status-text');
+const btnUpdateHint = document.getElementById('btn-update-hint');
+const linkGithubRelease = document.getElementById('link-github-release');
+const appVersionFooter = document.getElementById('app-version-footer');
 const themeSegmented = document.getElementById('theme-segmented');
 
 const THEME_KEY = 'sticky-todo:theme';
@@ -42,7 +45,6 @@ let systemDarkQuery = window.matchMedia('(prefers-color-scheme: dark)');
 
 let todos = [];
 let dragSrcId = null;
-let latestReleaseUrl = null;
 
 // ── Initialization ──────────────────────────────────
 
@@ -71,6 +73,7 @@ async function init() {
   setupEventListeners();
   setupDockListeners();
   restoreDockState();
+  initUpdateChecker();
 }
 
 // ── Theme ───────────────────────────────────────────
@@ -183,7 +186,24 @@ function setupEventListeners() {
 
   // Update checker
   if (btnCheckUpdate) {
-    btnCheckUpdate.addEventListener('click', handleCheckUpdate);
+    btnCheckUpdate.addEventListener('click', () => {
+      if (updateState.status === 'update-available') {
+        handleDownloadAndInstall();
+      } else {
+        handleCheckUpdate();
+      }
+    });
+  }
+  if (btnUpdateHint) {
+    btnUpdateHint.addEventListener('click', openSettings);
+  }
+  if (linkGithubRelease) {
+    linkGithubRelease.addEventListener('click', (e) => {
+      e.preventDefault();
+      invoke('open_external_url', { url: GITHUB_RELEASES_URL }).catch(() => {
+        window.open(GITHUB_RELEASES_URL, '_blank');
+      });
+    });
   }
 
   // Clear completed
@@ -192,90 +212,205 @@ function setupEventListeners() {
 
 // ── Update Checker ──────────────────────────────────
 
-function compareSemver(a, b) {
-  const pa = a.split('.').map(n => parseInt(n, 10) || 0);
-  const pb = b.split('.').map(n => parseInt(n, 10) || 0);
-  const len = Math.max(pa.length, pb.length);
-  for (let i = 0; i < len; i++) {
-    const na = pa[i] || 0;
-    const nb = pb[i] || 0;
-    if (na > nb) return 1;
-    if (na < nb) return -1;
-  }
-  return 0;
+const GITHUB_RELEASES_URL = 'https://github.com/landfallbox/sticky-todo/releases';
+const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 运行中超过 24h 自动再查一次
+let APP_VERSION = '0.3.0'; // 兜底值，init 时从 core:app:version 读取实际值
+
+const updateState = {
+  // idle | checking | up-to-date | update-available | downloading | installing | error
+  status: 'idle',
+  latestVersion: null,
+  releaseNotes: null,
+  lastCheckedAt: 0,
+  downloaded: 0,
+  total: 0,
+  downloadFailed: false, // 下载/安装失败标记，供 renderUpdateUI 显示失败文案
+  update: null, // updater.check() 返回的 Update 实例，downloadAndInstall 是其实例方法
+};
+
+function openSettings() {
+  if (settingsPanel) settingsPanel.classList.remove('hidden');
 }
 
-async function handleCheckUpdate() {
-  if (latestReleaseUrl) {
-    try {
-      await invoke('open_external_url', { url: latestReleaseUrl });
-    } catch {
-      window.open(latestReleaseUrl, '_blank');
+/**
+ * 取 withGlobalTauri 注入的 updater 全局 API（插件 api-iife.js 自动挂载到 __TAURI__.updater）。
+ * 本应用无打包器、不走 npm 包；API 不可用时返回 null，调用方据此走错误/降级分支。
+ * @returns {{check: Function}|null} updater 命名空间或 null
+ */
+function getUpdaterApi() {
+  const g = window.__TAURI__?.updater;
+  if (g && typeof g.check === 'function') return g;
+  return null;
+}
+
+/**
+ * 执行一次更新检查并更新共享状态。
+ * @param {boolean} silent 静默模式：不进入 checking 态、不弹错误（用于启动/每日自动检查）。
+ *   发现新版本时仍会点亮提示按钮；下载/安装进行中会跳过本次结果，避免覆盖进行中的状态。
+ */
+async function runUpdateCheck(silent) {
+  if (updateState.status === 'downloading' || updateState.status === 'installing') return;
+  const api = getUpdaterApi();
+  if (!api) {
+    if (!silent) {
+      updateState.status = 'error';
+      renderUpdateUI();
     }
     return;
   }
-
-  btnCheckUpdate.disabled = true;
-  btnCheckUpdate.textContent = '检查中...';
-  if (updateStatusText) updateStatusText.textContent = '正在获取最新版本信息...';
-
+  if (!silent) {
+    updateState.status = 'checking';
+    renderUpdateUI();
+  }
   try {
-    let result = null;
-    try {
-      result = await invoke('check_for_updates');
-    } catch (e) {
-      console.warn('Backend update check failed:', e);
-    }
-
-    // Fallback: try frontend web fetch if backend failed
-    if (!result || !result.success) {
-      try {
-        const resp = await fetch('https://api.github.com/repos/landfallbox/sticky-todo/releases/latest');
-        if (resp.ok) {
-          const data = await resp.json();
-          const latestTag = data.tag_name || '';
-          const latestVer = latestTag.replace(/^v/, '');
-          const curVer = '0.1.2';
-          const hasUp = compareSemver(latestVer, curVer) > 0;
-          result = {
-            success: true,
-            has_update: hasUp,
-            latest_version: latestVer,
-            release_url: data.html_url,
-            current_version: curVer
-          };
-        }
-      } catch (e) {
-        console.warn('Frontend fallback fetch failed:', e);
-      }
-    }
-
-    if (result && result.success) {
-      if (result.has_update) {
-        latestReleaseUrl = result.release_url || 'https://github.com/landfallbox/sticky-todo/releases';
-        if (updateStatusText) updateStatusText.textContent = `发现新版本 v${result.latest_version}！`;
-        btnCheckUpdate.textContent = '前往下载';
-        btnCheckUpdate.classList.add('btn-has-update');
-        btnCheckUpdate.disabled = false;
-      } else {
-        if (updateStatusText) updateStatusText.textContent = `当前已是最新版本 (v${result.current_version})`;
-        btnCheckUpdate.textContent = '已是最新';
-        setTimeout(() => {
-          btnCheckUpdate.textContent = '检查更新';
-          btnCheckUpdate.disabled = false;
-        }, 2500);
-      }
+    const update = await api.check({ timeout: 15000 });
+    // await 期间用户可能已发起下载/安装，此时丢弃本次结果，避免回写覆盖进行中的状态
+    if (updateState.status === 'downloading' || updateState.status === 'installing') return;
+    updateState.lastCheckedAt = Date.now();
+    if (update) {
+      updateState.status = 'update-available';
+      updateState.update = update;
+      updateState.latestVersion = update.version;
+      updateState.releaseNotes = update.body || null;
     } else {
-      if (updateStatusText) updateStatusText.textContent = '检查失败，请检查网络';
-      btnCheckUpdate.textContent = '重试';
-      btnCheckUpdate.disabled = false;
+      updateState.update = null;
+      if (updateState.status === 'update-available') {
+        // 静默复查发现已无更新（如 release 已撤）：清除过期的 update-available
+        updateState.status = silent ? 'idle' : 'up-to-date';
+      } else if (!silent && updateState.status === 'checking') {
+        updateState.status = 'up-to-date';
+      }
     }
   } catch (err) {
-    console.error('Update check error:', err);
-    if (updateStatusText) updateStatusText.textContent = '检查失败，请稍后重试';
-    btnCheckUpdate.textContent = '重试';
-    btnCheckUpdate.disabled = false;
+    console.warn('Update check failed:', err);
+    // 仅当仍处于 checking 时才置 error：避免覆盖进行中的 downloading/installing，
+    // 也避免抹掉已存在的 update-available（与成功路径的早退守卫对称）
+    if (!silent && updateState.status === 'checking') updateState.status = 'error';
   }
+  renderUpdateUI();
+}
+
+/** 手动检查入口：非静默执行一次更新检查（按钮触发）。 */
+async function handleCheckUpdate() {
+  await runUpdateCheck(false);
+}
+
+/**
+ * 下载进度事件回调（tauri-plugin-updater 的 DownloadEvent，serde tag=event/content=data）：
+ * {event:'Started',data:{contentLength}} / {event:'Progress',data:{chunkLength}} / {event:'Finished'}。
+ * 注意：Rust 枚举 tag 实为 PascalCase（变体名未做 enum 级重命名），官方 TS 类型却写小写，
+ * 这里统一小写比较以兼容两种形状。
+ * @param {{event?: string, data?: {contentLength?: number, chunkLength?: number}}} message
+ */
+function onDownloadEvent(message) {
+  const ev = typeof message?.event === 'string' ? message.event.toLowerCase() : '';
+  const data = message?.data || {};
+  if (ev === 'started') {
+    updateState.total = data.contentLength || 0;
+  } else if (ev === 'progress') {
+    updateState.downloaded += data.chunkLength || 0;
+  } else if (ev === 'finished') {
+    updateState.status = 'installing';
+  }
+  renderUpdateUI();
+}
+
+/**
+ * 下载并安装当前可用更新。仅在 update-available 且有 Update 实例时执行；
+ * 带 5 分钟总超时，失败时置 downloadFailed 标记并回退到可重试的 update-available 态。
+ */
+async function handleDownloadAndInstall() {
+  if (updateState.status !== 'update-available' || !updateState.update) return;
+  updateState.status = 'downloading';
+  updateState.downloaded = 0;
+  updateState.total = 0;
+  updateState.downloadFailed = false;
+  renderUpdateUI();
+  try {
+    // 总请求超时（ms），按最大安装包尺寸预留，避免慢网下卡死在 downloading
+    await updateState.update.downloadAndInstall(onDownloadEvent, { timeout: 300000 });
+  } catch (err) {
+    console.error('Update download/install failed:', err);
+    updateState.status = 'update-available';
+    updateState.downloadFailed = true;
+    renderUpdateUI();
+  }
+}
+
+/**
+ * 按 updateState.status 渲染设置页状态文字、检查按钮文案/可用态，
+ * 以及标题栏更新提示按钮与 GitHub 兜底链接的显隐。
+ */
+function renderUpdateUI() {
+  const s = updateState.status;
+  if (updateStatusText) {
+    if (s === 'checking') updateStatusText.textContent = '正在检查更新…';
+    else if (s === 'up-to-date') updateStatusText.textContent = `当前已是最新版本 (v${APP_VERSION})`;
+    else if (s === 'update-available') updateStatusText.textContent = updateState.downloadFailed
+      ? '更新下载失败，请重试'
+      : `发现新版本 v${updateState.latestVersion}！`;
+    else if (s === 'downloading') {
+      const pct = updateState.total > 0 ? Math.floor((updateState.downloaded / updateState.total) * 100) : null;
+      updateStatusText.textContent = pct !== null ? `下载中 ${pct}%…` : '下载中…';
+    } else if (s === 'installing') updateStatusText.textContent = '准备安装，应用即将重启…';
+    else if (s === 'error') updateStatusText.textContent = '检查失败，请检查网络';
+    else updateStatusText.textContent = `当前版本 v${APP_VERSION}`;
+  }
+  if (btnCheckUpdate) {
+    btnCheckUpdate.classList.toggle('btn-has-update', s === 'update-available');
+    if (s === 'checking') {
+      btnCheckUpdate.textContent = '检查中...';
+      btnCheckUpdate.disabled = true;
+    } else if (s === 'up-to-date') {
+      btnCheckUpdate.textContent = '已是最新';
+      btnCheckUpdate.disabled = false;
+      setTimeout(() => {
+        if (updateState.status === 'up-to-date') btnCheckUpdate.textContent = '检查更新';
+      }, 2500);
+    } else if (s === 'update-available') {
+      btnCheckUpdate.textContent = '下载并更新';
+      btnCheckUpdate.disabled = false;
+    } else if (s === 'downloading' || s === 'installing') {
+      btnCheckUpdate.textContent = s === 'downloading' ? '下载中…' : '安装中…';
+      btnCheckUpdate.disabled = true;
+    } else if (s === 'error') {
+      btnCheckUpdate.textContent = '重试';
+      btnCheckUpdate.disabled = false;
+    } else {
+      btnCheckUpdate.textContent = '检查更新';
+      btnCheckUpdate.disabled = false;
+    }
+  }
+  if (linkGithubRelease) linkGithubRelease.classList.toggle('hidden', s !== 'update-available');
+  if (btnUpdateHint) btnUpdateHint.classList.toggle('hidden', s !== 'update-available');
+}
+
+/** 排程每日自动检查：到点静默检查一次，然后递归重新排程（应用不关则每天至少查一次）。 */
+function scheduleDailyCheck() {
+  setTimeout(() => {
+    runUpdateCheck(true);
+    scheduleDailyCheck();
+  }, UPDATE_CHECK_INTERVAL_MS);
+}
+
+/**
+ * 初始化更新检查器：读取真实应用版本（失败则保留兜底版本号），
+ * 渲染初始 UI，触发一次静默检查，并启动每日检查排程。
+ */
+async function initUpdateChecker() {
+  try {
+    // 全局 API 的 getVersion 实际 invoke `plugin:app|version`；
+    // `core:app:version` 不是有效命令名，会 reject 并被空 catch 吞掉
+    const getVersion = window.__TAURI__?.app?.getVersion;
+    const v = getVersion ? await getVersion() : null;
+    if (typeof v === 'string' && v) APP_VERSION = v;
+  } catch (e) {
+    // 保留兜底版本号
+  }
+  if (appVersionFooter) appVersionFooter.textContent = `Sticky Todo v${APP_VERSION} · Tauri 2`;
+  renderUpdateUI();
+  runUpdateCheck(true);
+  scheduleDailyCheck();
 }
 
 // Pull the persisted dock/collapse state so the edge strip renders
