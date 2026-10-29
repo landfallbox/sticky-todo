@@ -36,6 +36,7 @@ const btnCheckUpdate = document.getElementById('btn-check-update');
 const updateStatusText = document.getElementById('update-status-text');
 const btnUpdateHint = document.getElementById('btn-update-hint');
 const linkGithubRelease = document.getElementById('link-github-release');
+const appVersionFooter = document.getElementById('app-version-footer');
 const themeSegmented = document.getElementById('theme-segmented');
 
 const THEME_KEY = 'sticky-todo:theme';
@@ -223,6 +224,7 @@ const updateState = {
   lastCheckedAt: 0,
   downloaded: 0,
   total: 0,
+  downloadFailed: false, // 下载/安装失败标记，供 renderUpdateUI 显示失败文案
   update: null, // updater.check() 返回的 Update 实例，downloadAndInstall 是其实例方法
 };
 
@@ -230,14 +232,22 @@ function openSettings() {
   if (settingsPanel) settingsPanel.classList.remove('hidden');
 }
 
-// withGlobalTauri 注入的 updater 全局 API（插件 api-iife.js 自动挂载到 __TAURI__.updater）；
-// 不可用时返回 null（本应用无打包器，不走 npm 包）
+/**
+ * 取 withGlobalTauri 注入的 updater 全局 API（插件 api-iife.js 自动挂载到 __TAURI__.updater）。
+ * 本应用无打包器、不走 npm 包；API 不可用时返回 null，调用方据此走错误/降级分支。
+ * @returns {{check: Function}|null} updater 命名空间或 null
+ */
 function getUpdaterApi() {
   const g = window.__TAURI__?.updater;
   if (g && typeof g.check === 'function') return g;
   return null;
 }
 
+/**
+ * 执行一次更新检查并更新共享状态。
+ * @param {boolean} silent 静默模式：不进入 checking 态、不弹错误（用于启动/每日自动检查）。
+ *   发现新版本时仍会点亮提示按钮；下载/安装进行中会跳过本次结果，避免覆盖进行中的状态。
+ */
 async function runUpdateCheck(silent) {
   if (updateState.status === 'downloading' || updateState.status === 'installing') return;
   const api = getUpdaterApi();
@@ -253,7 +263,9 @@ async function runUpdateCheck(silent) {
     renderUpdateUI();
   }
   try {
-    const update = await api.check();
+    const update = await api.check({ timeout: 15000 });
+    // await 期间用户可能已发起下载/安装，此时丢弃本次结果，避免回写覆盖进行中的状态
+    if (updateState.status === 'downloading' || updateState.status === 'installing') return;
     updateState.lastCheckedAt = Date.now();
     if (update) {
       updateState.status = 'update-available';
@@ -262,7 +274,10 @@ async function runUpdateCheck(silent) {
       updateState.releaseNotes = update.body || null;
     } else {
       updateState.update = null;
-      if (!silent && updateState.status === 'checking') {
+      if (updateState.status === 'update-available') {
+        // 静默复查发现已无更新（如 release 已撤）：清除过期的 update-available
+        updateState.status = silent ? 'idle' : 'up-to-date';
+      } else if (!silent && updateState.status === 'checking') {
         updateState.status = 'up-to-date';
       }
     }
@@ -273,14 +288,18 @@ async function runUpdateCheck(silent) {
   renderUpdateUI();
 }
 
+/** 手动检查入口：非静默执行一次更新检查（按钮触发）。 */
 async function handleCheckUpdate() {
   await runUpdateCheck(false);
 }
 
-// 下载进度事件（tauri-plugin-updater 的 DownloadEvent，serde tag=event/content=data）：
-// {event:'Started',data:{contentLength}} / {event:'Progress',data:{chunkLength}} / {event:'Finished'}
-// 注意：Rust 枚举 tag 实为 PascalCase（变体名未做 enum 级重命名），官方 TS 类型却写小写，
-// 这里统一小写比较以兼容两种形状
+/**
+ * 下载进度事件回调（tauri-plugin-updater 的 DownloadEvent，serde tag=event/content=data）：
+ * {event:'Started',data:{contentLength}} / {event:'Progress',data:{chunkLength}} / {event:'Finished'}。
+ * 注意：Rust 枚举 tag 实为 PascalCase（变体名未做 enum 级重命名），官方 TS 类型却写小写，
+ * 这里统一小写比较以兼容两种形状。
+ * @param {{event?: string, data?: {contentLength?: number, chunkLength?: number}}} message
+ */
 function onDownloadEvent(message) {
   const ev = typeof message?.event === 'string' ? message.event.toLowerCase() : '';
   const data = message?.data || {};
@@ -294,28 +313,40 @@ function onDownloadEvent(message) {
   renderUpdateUI();
 }
 
+/**
+ * 下载并安装当前可用更新。仅在 update-available 且有 Update 实例时执行；
+ * 带 5 分钟总超时，失败时置 downloadFailed 标记并回退到可重试的 update-available 态。
+ */
 async function handleDownloadAndInstall() {
   if (updateState.status !== 'update-available' || !updateState.update) return;
   updateState.status = 'downloading';
   updateState.downloaded = 0;
   updateState.total = 0;
+  updateState.downloadFailed = false;
   renderUpdateUI();
   try {
-    await updateState.update.downloadAndInstall(onDownloadEvent);
+    // 总请求超时（ms），按最大安装包尺寸预留，避免慢网下卡死在 downloading
+    await updateState.update.downloadAndInstall(onDownloadEvent, { timeout: 300000 });
   } catch (err) {
     console.error('Update download/install failed:', err);
     updateState.status = 'update-available';
-    if (updateStatusText) updateStatusText.textContent = '更新下载失败，请重试';
+    updateState.downloadFailed = true;
     renderUpdateUI();
   }
 }
 
+/**
+ * 按 updateState.status 渲染设置页状态文字、检查按钮文案/可用态，
+ * 以及标题栏更新提示按钮与 GitHub 兜底链接的显隐。
+ */
 function renderUpdateUI() {
   const s = updateState.status;
   if (updateStatusText) {
     if (s === 'checking') updateStatusText.textContent = '正在检查更新…';
     else if (s === 'up-to-date') updateStatusText.textContent = `当前已是最新版本 (v${APP_VERSION})`;
-    else if (s === 'update-available') updateStatusText.textContent = `发现新版本 v${updateState.latestVersion}！`;
+    else if (s === 'update-available') updateStatusText.textContent = updateState.downloadFailed
+      ? '更新下载失败，请重试'
+      : `发现新版本 v${updateState.latestVersion}！`;
     else if (s === 'downloading') {
       const pct = updateState.total > 0 ? Math.floor((updateState.downloaded / updateState.total) * 100) : null;
       updateStatusText.textContent = pct !== null ? `下载中 ${pct}%…` : '下载中…';
@@ -352,6 +383,7 @@ function renderUpdateUI() {
   if (btnUpdateHint) btnUpdateHint.classList.toggle('hidden', s !== 'update-available');
 }
 
+/** 排程每日自动检查：到点静默检查一次，然后递归重新排程（应用不关则每天至少查一次）。 */
 function scheduleDailyCheck() {
   setTimeout(() => {
     runUpdateCheck(true);
@@ -359,13 +391,21 @@ function scheduleDailyCheck() {
   }, UPDATE_CHECK_INTERVAL_MS);
 }
 
+/**
+ * 初始化更新检查器：读取真实应用版本（失败则保留兜底版本号），
+ * 渲染初始 UI，触发一次静默检查，并启动每日检查排程。
+ */
 async function initUpdateChecker() {
   try {
-    const v = await invoke('core:app:version');
+    // 全局 API 的 getVersion 实际 invoke `plugin:app|version`；
+    // `core:app:version` 不是有效命令名，会 reject 并被空 catch 吞掉
+    const getVersion = window.__TAURI__?.app?.getVersion;
+    const v = getVersion ? await getVersion() : null;
     if (typeof v === 'string' && v) APP_VERSION = v;
   } catch (e) {
     // 保留兜底版本号
   }
+  if (appVersionFooter) appVersionFooter.textContent = `Sticky Todo v${APP_VERSION} · Tauri 2`;
   renderUpdateUI();
   runUpdateCheck(true);
   scheduleDailyCheck();

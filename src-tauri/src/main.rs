@@ -721,6 +721,8 @@ fn start_cursor_watcher() {
 
 // ── Main Entrypoint ─────────────────────────────────────────────────────────
 
+/// Application entrypoint. Loads the todo store, registers the shell and
+/// updater plugins, and wires up all Tauri commands before running the app.
 fn main() {
     let store = TodoStore::load();
 

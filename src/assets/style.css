@@ -157,6 +157,10 @@ body.collapsed {
   background: var(--accent-hover);
 }
 
+.update-hint.hidden {
+  display: none;
+}
+
 .titlebar-actions {
   display: flex;
   gap: 2px;

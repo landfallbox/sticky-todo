@@ -9,6 +9,7 @@ node_modules/
 # Logs & temp files
 *.log
 *.tmp
+tmp/
 run_log.txt
 app_debug.log
 

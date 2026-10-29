@@ -17,7 +17,7 @@
                                                  │ HTTPS
                                           ┌──────▼───────────────────────────────┐
                                           │ GitHub Releases (latest 资产)          │
-                                          │  latest.json + Sticky Todo Setup x.y.z │
+                                          │ latest.json + Sticky Todo_x.y.z_x64-setup.exe │
                                           └──────────────────────────────────────┘
 ```
 
@@ -34,10 +34,17 @@
   "version": "0.3.0",
   "notes": "release notes",
   "pub_date": "2026-10-29T08:00:00Z",
-  "url": "https://github.com/landfallbox/sticky-todo/releases/download/v0.3.0/Sticky%20Todo%20Setup%200.3.0.exe",
-  "signature": "<base64 ed25519 签名>"
+  "platforms": {
+    "windows-x86_64": {
+      "url": "https://github.com/landfallbox/sticky-todo/releases/download/v0.3.0/Sticky%20Todo_0.3.0_x64-setup.exe",
+      "signature": "<base64 ed25519 签名>"
+    }
+  }
 }
 ```
+
+- `platforms` 键为 `{os}-{arch}`（Windows x64 即 `windows-x86_64`）。客户端按 `windows-x86_64-nsis` → `windows-x86_64` 顺序查找，故 `windows-x86_64` 为有效回退键。
+- 安装包为 NSIS 产物，文件名遵循 Tauri 默认命名 `{productName}_{version}_{arch}-setup.exe`（即 `Sticky Todo_0.3.0_x64-setup.exe`），URL 中空格需百分号编码为 `%20`。
 
 版本比较由 plugin 内置（semver 风格），替代现有 `is_newer_version` 逻辑。
 
@@ -99,14 +106,14 @@
 1. 生成密钥对：`npx tauri signer generate -w <本地安全目录>\tauri-updater.key`（产出私钥文件 + 终端打印公钥）。
 2. 私钥保管：仅存本地（如 `C:\Users\tang\keys\` 或密码管理器），**不进仓库**；`.gitignore` 增加 `*.key` 保险。
 3. 公钥写入 `tauri.conf.json` → `plugins.updater.pubkey`。
-4. 以后每次发版构建时提供私钥：`$env:TAURI_SIGNING_PRIVATE_KEY_PATH = "<私钥路径>"` 后再 `tauri build`。
+4. 以后每次发版构建时提供私钥：`$env:TAURI_SIGNING_PRIVATE_KEY = "<私钥路径>"` 后再 `tauri build`（变量值为私钥文件路径；`TAURI_SIGNING_PRIVATE_KEY_PATH` 对打包器无效）。
 
 ## 7. 发版流程（变更点）
 
 每次发版（以 0.3.0 为例）：
 
 1. 版本号对齐：`Cargo.toml` + `tauri.conf.json` + 前端展示文案统一 bump。
-2. 构建：设置 `TAURI_SIGNING_PRIVATE_KEY_PATH` 后 `npx tauri build` → 产物目录生成 `Sticky Todo Setup 0.3.0.exe`、`latest.json`、`.exe.sig`。
+2. 构建：设置 `$env:TAURI_SIGNING_PRIVATE_KEY = "<私钥路径>"` 后 `npx tauri build` → 产物目录生成 `Sticky Todo_0.3.0_x64-setup.exe`、`latest.json`（含 `platforms.windows-x86_64`）、`Sticky Todo_0.3.0_x64-setup.exe.sig`。
 3. GitHub 创建 release `v0.3.0`，上传资产：NSIS exe + `latest.json`（`.sig` 可不传，签名已内嵌 latest.json）。
 4. 验证：`curl -sL https://github.com/landfallbox/sticky-todo/releases/latest/download/latest.json` 确认 200 且 JSON 合法；旧版本应用内点「检查更新」→ 下载 → 安装 → 重启为 0.3.0。
 
