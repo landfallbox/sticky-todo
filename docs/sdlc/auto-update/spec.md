@@ -27,7 +27,7 @@
 
 ## 2. 更新端点数据格式
 
-`latest.json` 由 Tauri 构建时自动生成（签名后产出），格式：
+`latest.json` **不是构建产物**（tauri-cli 2.12 的 `createUpdaterArtifacts` 只产出 `.sig`，不产出 latest.json），需按本格式**手动创建**后作为 release 资产上传：
 
 ```json
 {
@@ -36,15 +36,16 @@
   "pub_date": "2026-10-29T08:00:00Z",
   "platforms": {
     "windows-x86_64": {
-      "url": "https://github.com/landfallbox/sticky-todo/releases/download/v0.3.0/Sticky%20Todo_0.3.0_x64-setup.exe",
-      "signature": "<base64 ed25519 签名>"
+      "url": "https://github.com/landfallbox/sticky-todo/releases/download/v0.3.0/Sticky.Todo_0.3.0_x64-setup.exe",
+      "signature": "<.sig 文件内容，base64 ed25519 签名>"
     }
   }
 }
 ```
 
 - `platforms` 键为 `{os}-{arch}`（Windows x64 即 `windows-x86_64`）。客户端按 `windows-x86_64-nsis` → `windows-x86_64` 顺序查找，故 `windows-x86_64` 为有效回退键。
-- 安装包为 NSIS 产物，文件名遵循 Tauri 默认命名 `{productName}_{version}_{arch}-setup.exe`（即 `Sticky Todo_0.3.0_x64-setup.exe`），URL 中空格需百分号编码为 `%20`。
+- **资产名坑**：Tauri 产物文件名是 `Sticky Todo_0.3.0_x64-setup.exe`（带空格），但上传到 GitHub 后**资产名中的空格会被替换为点号**（`Sticky.Todo_0.3.0_x64-setup.exe`，v0.2.1 同样如此）。因此 `latest.json` 的 `url` 必须用**点号形式**，写成 `%20` 空格形式会 404 导致更新下载失败。
+- `signature` 直接取 `.sig` 文件内容；`url` 应上传后从 `gh api repos/.../releases/tags/vX.Y.Z` 的 `browser_download_url` 字段核对，不要凭文件名推断。
 
 版本比较由 plugin 内置（semver 风格），替代现有 `is_newer_version` 逻辑。
 
@@ -113,9 +114,11 @@
 每次发版（以 0.3.0 为例）：
 
 1. 版本号对齐：`Cargo.toml` + `tauri.conf.json` + 前端展示文案统一 bump。
-2. 构建：设置 `$env:TAURI_SIGNING_PRIVATE_KEY = "<私钥路径>"` 后 `npx tauri build` → 产物目录生成 `Sticky Todo_0.3.0_x64-setup.exe`、`latest.json`（含 `platforms.windows-x86_64`）、`Sticky Todo_0.3.0_x64-setup.exe.sig`。
-3. GitHub 创建 release `v0.3.0`，上传资产：NSIS exe + `latest.json`（`.sig` 可不传，签名已内嵌 latest.json）。
-4. 验证：`curl -sL https://github.com/landfallbox/sticky-todo/releases/latest/download/latest.json` 确认 200 且 JSON 合法；旧版本应用内点「检查更新」→ 下载 → 安装 → 重启为 0.3.0。
+2. 构建：设置 `$env:TAURI_SIGNING_PRIVATE_KEY = "<私钥路径>"` 后 `npx tauri build` → 产物目录生成 `Sticky Todo_0.3.0_x64-setup.exe` 和 `Sticky Todo_0.3.0_x64-setup.exe.sig`（**不含 latest.json**）。
+3. 按 §2 格式**手动创建 `latest.json`**（`signature` 取 `.sig` 文件内容；`url` 暂按点号资产名写，上传后核对）。
+4. GitHub 创建 release `v0.3.0`，上传资产：NSIS exe + `latest.json`（`.sig` 可不传，签名已内嵌 latest.json）。
+5. 上传后用 `gh api repos/landfallbox/sticky-todo/releases/tags/v0.3.0` 的 `browser_download_url` **核对 `latest.json` 中的 exe URL**（空格→点号坑，见 §2）；不符则改 latest.json 后 `gh release upload v0.3.0 latest.json --clobber` 重传。
+6. 验证：`curl -sL https://github.com/landfallbox/sticky-todo/releases/latest/download/latest.json` 确认 200 且 JSON 合法，并 GET 其中 `url` 确认 200；旧版本应用内点「检查更新」→ 下载 → 安装 → 重启为 0.3.0。
 
 注意：**0.3.0 是第一个带签名的版本**。0.2.x 及更早用户无法通过内更升级到 0.3.0 之前也没有内更能力，所以 0.3.0 本身仍需用户手动从 GitHub 安装一次（发布说明中写明）；0.3.0 → 之后的版本即可全内更。
 
