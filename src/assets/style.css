@@ -136,6 +136,27 @@ body.collapsed {
   letter-spacing: 0.02em;
 }
 
+.update-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  height: 20px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #ffffff;
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+  transition: background var(--transition);
+}
+
+.update-hint:hover {
+  background: var(--accent-hover);
+}
+
 .titlebar-actions {
   display: flex;
   gap: 2px;
@@ -797,6 +818,24 @@ body.collapsed .edge-peek {
 .settings-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.update-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+}
+
+.update-fallback {
+  font-size: 11px;
+  color: var(--text-secondary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.update-fallback:hover {
+  color: var(--accent);
 }
 
 .settings-footer {

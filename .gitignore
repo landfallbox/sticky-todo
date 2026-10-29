@@ -20,3 +20,8 @@ Thumbs.db
 *.zip
 dist/
 
+# Tauri updater signing key (keep secret, never commit)
+tauri-updater.key
+tauri-updater.key.pub
+*.key
+
