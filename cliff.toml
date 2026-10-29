@@ -63,4 +63,6 @@ topo_order_commits = true
 sort_commits = "oldest"
 recurse_submodules = false
 # 版本号边界来自 git tag（v*），与 tag 推送发布方式对齐。
-tag_pattern = "v[0-9]*"
+# 锚定开头并要求 v 后至少一位数字，与 release workflow 的 --match glob 保持一致，
+# 避免 dev 等非版本 tag 被当作 release 边界。
+tag_pattern = "^v[0-9]+"
