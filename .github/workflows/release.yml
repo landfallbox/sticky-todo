@@ -42,6 +42,7 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         with:
           tagName: ${{ github.ref_name || inputs.tag_name }}
           releaseName: 'Sticky Todo ${{ github.ref_name || inputs.tag_name }} ✦'
@@ -71,4 +72,50 @@ jobs:
           if (Test-Path $exePath) {
             Compress-Archive -Path $exePath -DestinationPath $zipPath -Force
             gh release upload $tag $exePath $zipPath --clobber
+          }
+
+      - name: Generate & Upload latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: pwsh
+        run: |
+          # tauri-cli 只产出 .sig，不产出 latest.json，需在此生成
+          # tag push 时 GITHUB_REF 为 refs/tags/vX.Y.Z；workflow_dispatch 时取输入
+          if ($env:GITHUB_REF -like "refs/tags/v*") {
+            $tag = $env:GITHUB_REF_NAME
+          } else {
+            $tag = "${{ inputs.tag_name }}"
+          }
+          $version = $tag -replace '^v', ''
+          $nsisDir = "src-tauri/target/release/bundle/nsis"
+          $sigPath = Join-Path $nsisDir "Sticky Todo_${version}_x64-setup.exe.sig"
+          if (-not (Test-Path $sigPath)) {
+            Write-Error "签名文件不存在: $sigPath（构建未启用签名？）"
+            exit 1
+          }
+          $sig = (Get-Content $sigPath -Raw).Trim()
+          # 坑：GitHub 上传资产时文件名空格转点号，latest.json 的 url 必须用点号形式
+          $url = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/Sticky.Todo_${version}_x64-setup.exe"
+          $json = @{
+            version = $version
+            notes = "Sticky Todo v$version 更新"
+            pub_date = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
+            platforms = @{
+              "windows-x86_64" = @{
+                signature = $sig
+                url = $url
+              }
+            }
+          } | ConvertTo-Json -Depth 10
+          $latestPath = Join-Path $env:RUNNER_TEMP "latest.json"
+          [System.IO.File]::WriteAllText($latestPath, $json, (New-Object System.Text.UTF8Encoding $false))
+          gh release upload $tag $latestPath --clobber
+          # 自校验：latest.json 端点可达，且其中 url 指向的资产可达
+          $endpoint = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag/latest.json"
+          $r1 = curl.exe -sL -o $env:RUNNER_TEMP\latest-check.json -w "%{http_code}" $endpoint
+          $r2 = curl.exe -sL -o NUL -w "%{http_code}" $url
+          Write-Output "latest.json 端点: $r1; 安装包: $r2"
+          if ($r1 -ne "200" -or $r2 -ne "200") {
+            Write-Error "latest.json 端点校验失败（端点 $r1 / 安装包 $r2）"
+            exit 1
           }
