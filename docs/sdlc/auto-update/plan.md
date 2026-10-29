@@ -68,7 +68,7 @@
 | 设置面板开合 | 抽取 `openSettings()` 时可能改坏 toggle 行为 | 保持 `btn-settings` 原有 toggle 语义，`openSettings()` 只做「确保打开」 |
 | 待办 CRUD / 自启 / 置顶 / 停靠 / 主题 | 无直接改动 | 回归冒烟（见验证清单） |
 | `check_for_updates` 命令 | 删除后若有残留引用会编译/运行报错 | 前后端同批改完，`cargo check` + 运行验证 |
-| 开发工作流 | **启用 updater 后 `tauri dev`/`build` 都需要设置 `TAURI_SIGNING_PRIVATE_KEY`，否则构建失败** | 在 `package.json` 的 `dev:isolated` 脚本中不硬编码密钥路径（敏感），改为文档说明；或用户确认后用 `TAURI_SIGNING_PRIVATE_KEY` 环境变量手动注入 |
+| 开发工作流 | **仅 `tauri build`（生成带签名的 updater 产物）需要设置 `TAURI_SIGNING_PRIVATE_KEY`，否则构建失败；`tauri dev` 不生成 release 产物，无需签名密钥** | 在 `package.json` 的 `dev:isolated` 脚本中不硬编码密钥路径（敏感），改为文档说明；发版构建时再手动注入 `TAURI_SIGNING_PRIVATE_KEY` |
 
 ## 验证清单
 
@@ -91,7 +91,7 @@
 ## 最容易出问题的步骤
 
 1. **`window.__TAURI__.updater` 全局命名空间可用性**（第 3 步）——已有兜底（直接 invoke `plugin:updater|*` 命令），但 `download_and_install` 的进度事件回调在直调模式下要经 `transformCallback` 处理，是直调方案里最绕的点。验证成本 2 分钟，风险可控。
-2. **构建必须带签名密钥**（第 5 步）——忘记设 `TAURI_SIGNING_PRIVATE_KEY` 会构建失败；且这会改变以后每次 dev/build 的流程，需用户知情。
+2. **发版构建必须带签名密钥**（第 5 步）——`tauri build` 忘记设 `TAURI_SIGNING_PRIVATE_KEY` 会构建失败（`tauri dev` 不受影响）；这会改变以后每次发版构建的流程，需用户知情。
 3. **发版资产遗漏**（latest.json 忘传）——线上表现为所有用户「检查失败」；靠验证清单第 4/7 条前置拦截。
 
 ## 备选方案

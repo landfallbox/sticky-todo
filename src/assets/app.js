@@ -283,7 +283,9 @@ async function runUpdateCheck(silent) {
     }
   } catch (err) {
     console.warn('Update check failed:', err);
-    if (!silent) updateState.status = 'error';
+    // 仅当仍处于 checking 时才置 error：避免覆盖进行中的 downloading/installing，
+    // 也避免抹掉已存在的 update-available（与成功路径的早退守卫对称）
+    if (!silent && updateState.status === 'checking') updateState.status = 'error';
   }
   renderUpdateUI();
 }
