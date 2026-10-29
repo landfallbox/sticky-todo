@@ -40,7 +40,9 @@ jobs:
         run: npm install
 
       - name: Install git-cliff
-        uses: taiki-e/install-action@git-cliff@v2
+        uses: taiki-e/install-action@v2
+        with:
+          tool: git-cliff@2.14.2
 
       - name: Generate changelog
         run: |
