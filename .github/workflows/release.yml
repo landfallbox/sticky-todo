@@ -20,6 +20,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -37,6 +39,41 @@ jobs:
       - name: Install dependencies
         run: npm install
 
+      - name: Install git-cliff
+        uses: taiki-e/install-action@git-cliff@v2
+
+      - name: Generate changelog
+        run: |
+          git-cliff -o CHANGELOG.md
+          git-cliff --latest --strip header -o RELEASE_NOTES.md
+          Write-Output "===== CHANGELOG.md ====="
+          Get-Content CHANGELOG.md -Encoding utf8
+          Write-Output "===== RELEASE_NOTES.md ====="
+          Get-Content RELEASE_NOTES.md -Encoding utf8
+
+      - name: Assemble release body
+        id: release-body
+        run: |
+          $tag = if ("${{ github.ref_name }}".StartsWith("v")) { "${{ github.ref_name }}" } else { "${{ inputs.tag_name }}" }
+          $notes = Get-Content RELEASE_NOTES.md -Raw -Encoding utf8
+          $notes = $notes.TrimEnd("`r","`n")
+          $releaseBody = "$notes`n`n" + @"
+          ### 📦 下载与安装 (Assets)
+          - **推荐安装包**：下载下方的 `Sticky Todo_${tag}_x64-setup.exe`（自动安装并创建桌面快捷方式，支持系统卸载）。
+          - **单文件免安装绿色版**：下载 `sticky-todo.exe` 或 `sticky-todo-windows-x64.zip`，直接运行。
+
+          ### ✨ 核心特性
+          - 🪶 极致轻量（~25MB 内存），后台常驻零压力
+          - 🎨 现代 WinUI 3 / Fluent Design 质感与 DWM 原生圆角投影
+          - 🧲 贴靠屏幕边缘自动折叠隐藏，16px 蓝色提手挂耳触碰即时展开
+          - ⚙️ 偏好设置：支持一键开机自启、窗口置顶、一键检查软件更新
+          - 📝 完善的待办管理、排序与数据本地安全持久化
+          "@
+          if ([string]::IsNullOrWhiteSpace($releaseBody)) { throw "releaseBody 为空" }
+          "BODY<<EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8
+          $releaseBody | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+          "EOF" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
       - name: Build Tauri App & Publish Release
         id: build-tauri
         uses: tauri-apps/tauri-action@v0
@@ -45,19 +82,7 @@ jobs:
         with:
           tagName: ${{ github.ref_name || inputs.tag_name }}
           releaseName: 'Sticky Todo ${{ github.ref_name || inputs.tag_name }} ✦'
-          releaseBody: |
-            轻量、现代且性能极致的 Windows 桌面便签 TODO-List 应用。
-            
-            ### 📦 下载与安装 (Assets)
-            - **推荐安装包**：下载下方的 `Sticky Todo_${{ github.ref_name || inputs.tag_name }}_x64-setup.exe`（自动安装并创建桌面快捷方式，支持系统卸载）。
-            - **单文件免安装绿色版**：下载 `sticky-todo.exe` 或 `sticky-todo-windows-x64.zip`，直接运行。
-            
-            ### ✨ 核心特性
-            - 🪶 极致轻量（~25MB 内存），后台常驻零压力
-            - 🎨 现代 WinUI 3 / Fluent Design 质感与 DWM 原生圆角投影
-            - 🧲 贴靠屏幕边缘自动折叠隐藏，16px 蓝色提手挂耳触碰即时展开
-            - ⚙️ 偏好设置：支持一键开机自启、窗口置顶、一键检查软件更新
-            - 📝 完善的待办管理、排序与数据本地安全持久化
+          releaseBody: ${{ steps.release-body.outputs.BODY }}
           releaseDraft: false
           prerelease: false
 
@@ -71,4 +96,22 @@ jobs:
           if (Test-Path $exePath) {
             Compress-Archive -Path $exePath -DestinationPath $zipPath -Force
             gh release upload $tag $exePath $zipPath --clobber
+          }
+
+      - name: Commit CHANGELOG.md back to main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          Copy-Item CHANGELOG.md "$env:RUNNER_TEMP/CHANGELOG.md"
+          git fetch origin main
+          git checkout -B main origin/main
+          Move-Item -Force "$env:RUNNER_TEMP/CHANGELOG.md" CHANGELOG.md
+          git add CHANGELOG.md
+          if (-not (git diff --cached --quiet)) {
+            git commit -m "docs(changelog): update CHANGELOG.md"
+            git push origin main
+          } else {
+            Write-Output "CHANGELOG.md 无变化，跳过提交"
           }
