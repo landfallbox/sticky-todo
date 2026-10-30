@@ -91,6 +91,16 @@ function getStoredTheme() {
 function applyTheme(mode) {
   const dark = mode === 'dark' || (mode === 'system' && systemDarkQuery.matches);
   document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  syncWindowTheme(dark);
+}
+
+// 同步窗口 DWM 深浅色属性（通知栏/滚动条等跟随主题）
+async function syncWindowTheme(dark) {
+  try {
+    await invoke('set_window_theme', { dark });
+  } catch (err) {
+    console.warn('Failed to sync window theme:', err);
+  }
 }
 
 function setTheme(mode) {

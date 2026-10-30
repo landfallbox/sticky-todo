@@ -8,8 +8,9 @@
   --bg-mica: #f3f3f3;
   --bg-card: #ffffff;
   --bg-card-hover: #fafafa;
-  --bg-acrylic: #f9f9f9;
+  --bg-acrylic: rgba(249, 249, 249, 0.78);
   --accent: #0067C0;
+  --accent-contrast: #ffffff;
   --accent-light: #60CDFF;
   --accent-hover: #005BA1;
   --text-primary: #1a1a1a;
@@ -34,7 +35,7 @@
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
   --switch-track: rgba(0, 0, 0, 0.12);
   --switch-track-border: rgba(0, 0, 0, 0.2);
-  --switch-knob: #666666;
+  --switch-knob: #1a1a1a;
   --btn-default-bg: #ffffff;
   --btn-default-hover: #e9e9e9;
   --btn-default-border-hover: #c4c4c4;
@@ -46,17 +47,20 @@
   --bg-mica: #202020;
   --bg-card: #2d2d2d;
   --bg-card-hover: #333333;
-  --bg-acrylic: #272727;
+  --bg-acrylic: rgba(32, 32, 32, 0.78);
   --accent: #4cc2ff;
   --accent-light: #60CDFF;
   --accent-hover: #66cdff;
+  --accent-contrast: #1a1a1a;
   --text-primary: #ffffff;
   --text-secondary: #c5c5c5;
   --text-tertiary: #9a9a9a;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --shadow-card: 0 2px 4px rgba(0, 0, 0, 0.3), 0 0 1px rgba(0, 0, 0, 0.4);
-  --shadow-elevated: 0 4px 16px rgba(0, 0, 0, 0.5);
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  /* Fluent 深色高度系统：不用黑色阴影，用顶部高光 + 亮边框分层 */
+  --shadow-card: inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.45),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.06);
   --hover-overlay: rgba(255, 255, 255, 0.06);
   --accent-soft: rgba(76, 194, 255, 0.12);
   --accent-glow: rgba(76, 194, 255, 0.4);
@@ -64,8 +68,8 @@
   --scrollbar-thumb: rgba(255, 255, 255, 0.2);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.32);
   --switch-track: rgba(255, 255, 255, 0.16);
-  --switch-track-border: rgba(255, 255, 255, 0.3);
-  --switch-knob: #cccccc;
+  --switch-track-border: rgba(255, 255, 255, 0.4);
+  --switch-knob: #ffffff;
   --btn-default-bg: #333333;
   --btn-default-hover: #3d3d3d;
   --btn-default-border-hover: #4d4d4d;
@@ -254,7 +258,7 @@ body.collapsed {
   border: none;
   border-radius: var(--radius-sm);
   background: var(--accent);
-  color: white;
+  color: var(--accent-contrast);
   cursor: pointer;
   flex-shrink: 0;
   transition: background var(--transition), transform 100ms ease;
@@ -333,7 +337,8 @@ body.collapsed {
 
 .todo-item {
   display: flex;
-  align-items: flex-start;
+  /* 多行文字时让 checkbox/按钮相对整个文字块垂直居中 */
+  align-items: center;
   gap: 10px;
   padding: 10px 12px;
   margin-bottom: 4px;
@@ -381,7 +386,6 @@ body.collapsed {
 .todo-checkbox {
   width: 20px;
   height: 20px;
-  margin-top: 2px;
   border-radius: 50%;
   border: 2px solid var(--border-strong);
   display: flex;
@@ -448,7 +452,6 @@ body.collapsed {
 .todo-edit {
   width: 24px;
   height: 24px;
-  margin-top: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -468,7 +471,7 @@ body.collapsed {
 
 .todo-edit:hover {
   color: var(--accent);
-  background: rgba(0, 103, 192, 0.08);
+  background: var(--accent-soft);
 }
 
 .todo-edit:active {
@@ -479,7 +482,6 @@ body.collapsed {
 .todo-delete {
   width: 24px;
   height: 24px;
-  margin-top: 2px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -670,7 +672,10 @@ body.collapsed .edge-peek {
   left: 0;
   right: 0;
   bottom: 0;
-  background: var(--bg-mica);
+  /* Acrylic 质感（模拟 WinUI3 flyout）：半透明 + 模糊下方内容 */
+  background: var(--bg-acrylic);
+  backdrop-filter: blur(30px) saturate(150%);
+  -webkit-backdrop-filter: blur(30px) saturate(150%);
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -808,7 +813,7 @@ body.collapsed .edge-peek {
 
 .settings-btn.btn-has-update {
   background: var(--accent);
-  color: #ffffff;
+  color: var(--accent-contrast);
   border-color: var(--accent);
   font-weight: 500;
   box-shadow: 0 2px 6px rgba(0, 103, 192, 0.25);
