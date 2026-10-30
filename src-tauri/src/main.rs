@@ -179,10 +179,12 @@ fn set_always_on_top<R: Runtime>(
 /// 同步窗口 DWM 深浅色属性（通知栏/滚动条等跟随系统主题）。
 #[tauri::command]
 fn set_window_theme<R: Runtime>(window: WebviewWindow<R>, dark: bool) -> Result<(), String> {
-    let theme = if dark { tauri::Theme::Dark } else { tauri::Theme::Light };
-    window
-        .set_theme(Some(theme))
-        .map_err(|e| e.to_string())
+    let theme = if dark {
+        tauri::Theme::Dark
+    } else {
+        tauri::Theme::Light
+    };
+    window.set_theme(Some(theme)).map_err(|e| e.to_string())
 }
 
 #[tauri::command]
