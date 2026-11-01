@@ -2,6 +2,48 @@
 
 本文件由 git-cliff 自动生成，请勿手动编辑。
 <!-- git-cliff: end of header -->
+## 0.3.1 (2026-11-01)
+
+### 🐛 修复
+
+- (ci) 处理 CodeRabbit 审查意见（changelog 健壮性/版本区间/回写冲突）
+
+- (ci) 限定 prev-tag 匹配版本模式，回写 changelog 改从 main 历史生成
+
+- (ci) 锚定 git-cliff tag_pattern 避免非版本 tag 成为 release 边界
+
+- (theme) 提升深色模式质感，修复 todo 项对齐与窄窗口 placeholder 裁切
+
+- (theme) 修复 CI 格式检查，设置面板补全 Acrylic 不透明回退
+
+
+### 📝 文档
+
+- (sdlc) 修正 latest.json 生成方式与资产名空格转点号说明
+
+
+### 🔧 CI
+
+- (release) 工作流注入签名密钥并自动生成上传 latest.json
+
+
+### ⚙️ 其他
+
+- (ci) 升级 checkout/setup-node 至 v7 消除 Node 20 弃用警告
+
+## 0.3.0 (2026-10-29)
+
+### ✨ 新功能
+
+- (updater) 支持软件内自动更新，替代手动下载
+
+
+### 🐛 修复
+
+- (updater) 处理 CodeRabbit 审查意见（竞态/超时/失败提示/版本读取/隐藏规则）
+
+- (updater) 处理 CodeRabbit 复审意见（失败路径竞态守卫/签名密钥仅 build 需要）
+
 ## 0.2.1 (2026-10-29)
 
 ### ✨ 新功能
