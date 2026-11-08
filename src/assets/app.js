@@ -35,7 +35,6 @@ const switchAlwaysOnTop = document.getElementById('switch-always-on-top');
 const btnCheckUpdate = document.getElementById('btn-check-update');
 const updateStatusText = document.getElementById('update-status-text');
 const btnUpdateHint = document.getElementById('btn-update-hint');
-const linkGithubRelease = document.getElementById('link-github-release');
 const appVersionFooter = document.getElementById('app-version-footer');
 const themeSegmented = document.getElementById('theme-segmented');
 
@@ -207,14 +206,6 @@ function setupEventListeners() {
   if (btnUpdateHint) {
     btnUpdateHint.addEventListener('click', openSettings);
   }
-  if (linkGithubRelease) {
-    linkGithubRelease.addEventListener('click', (e) => {
-      e.preventDefault();
-      invoke('open_external_url', { url: GITHUB_RELEASES_URL }).catch(() => {
-        window.open(GITHUB_RELEASES_URL, '_blank');
-      });
-    });
-  }
 
   // Clear completed
   btnClearDone.addEventListener('click', clearCompleted);
@@ -222,7 +213,6 @@ function setupEventListeners() {
 
 // ── Update Checker ──────────────────────────────────
 
-const GITHUB_RELEASES_URL = 'https://github.com/landfallbox/sticky-todo/releases';
 const UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000; // 运行中超过 24h 自动再查一次
 let APP_VERSION = '0.3.0'; // 兜底值，init 时从 core:app:version 读取实际值
 
@@ -391,7 +381,6 @@ function renderUpdateUI() {
       btnCheckUpdate.disabled = false;
     }
   }
-  if (linkGithubRelease) linkGithubRelease.classList.toggle('hidden', s !== 'update-available');
   if (btnUpdateHint) btnUpdateHint.classList.toggle('hidden', s !== 'update-available');
 }
 
@@ -417,7 +406,7 @@ async function initUpdateChecker() {
   } catch (e) {
     // 保留兜底版本号
   }
-  if (appVersionFooter) appVersionFooter.textContent = `Sticky Todo v${APP_VERSION} · Tauri 2`;
+  if (appVersionFooter) appVersionFooter.textContent = `Sticky Todo v${APP_VERSION}`;
   renderUpdateUI();
   runUpdateCheck(true);
   scheduleDailyCheck();
