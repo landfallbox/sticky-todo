@@ -842,17 +842,6 @@ body.collapsed .edge-peek {
   gap: 4px;
 }
 
-.update-fallback {
-  font-size: 11px;
-  color: var(--text-secondary);
-  text-decoration: underline;
-  cursor: pointer;
-}
-
-.update-fallback:hover {
-  color: var(--accent);
-}
-
 .settings-footer {
   margin-top: auto;
   display: flex;
