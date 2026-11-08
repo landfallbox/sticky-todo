@@ -68,6 +68,16 @@ jobs:
           $tag = if ("${{ github.ref_name }}".StartsWith("v")) { "${{ github.ref_name }}" } else { "${{ inputs.tag_name }}" }
           $notes = Get-Content RELEASE_NOTES.md -Raw -Encoding utf8
           $notes = $notes.TrimEnd("`r","`n")
+          # 防御：区间内存在中间 tag（如并行分支的旧 tag 晚于新 tag 合入 main，
+          # 形成版本倒挂）时，git-cliff 会为每个 tag 各输出一个版本区块；
+          # 此时只保留当前版本区块，避免发布页重复出现旧版本内容
+          $version = $tag -replace '^v', ''
+          $cur = $notes.IndexOf("## $version ")
+          $first = $notes.IndexOf("## ")
+          if ($cur -gt $first) {
+            Write-Warning "RELEASE_NOTES.md 含中间版本区块（$first < $cur），仅保留 ## $version"
+            $notes = $notes.Substring($cur)
+          }
           $releaseBody = "$notes`n`n" + @"
           ### 📦 下载与安装 (Assets)
           - **推荐安装包**：下载下方的 `Sticky Todo_${tag}_x64-setup.exe`（自动安装并创建桌面快捷方式，支持系统卸载）。
