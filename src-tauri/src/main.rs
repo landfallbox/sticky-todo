@@ -8,6 +8,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::time::{Duration, Instant};
 use tauri::{
+    menu::{MenuBuilder, MenuItemBuilder},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
     Emitter, Manager, PhysicalPosition, PhysicalSize, Runtime, WebviewWindow,
 };
@@ -730,6 +731,22 @@ fn start_cursor_watcher() {
     });
 }
 
+// ── Tray helpers ────────────────────────────────────────────────────────────
+
+/// Toggle the main window's visibility from the tray. Persists the window
+/// position/dock state before hiding, mirroring the `hide_window` command.
+fn toggle_main_window(app: &tauri::AppHandle) {
+    if let Some(win) = app.get_webview_window("main") {
+        if win.is_visible().unwrap_or(false) {
+            persist_position(&win, &app.state::<AppState>());
+            let _ = win.hide();
+        } else {
+            let _ = win.show();
+            let _ = win.set_focus();
+        }
+    }
+}
+
 // ── Main Entrypoint ─────────────────────────────────────────────────────────
 
 /// Application entrypoint. Loads the todo store, registers the shell and
@@ -761,9 +778,15 @@ fn main() {
 
             // Build system tray safely
             if let Some(icon) = app.default_window_icon() {
+                let toggle = MenuItemBuilder::with_id("toggle", "显示/隐藏").build(app)?;
+                let quit = MenuItemBuilder::with_id("quit", "退出").build(app)?;
+                let menu = MenuBuilder::new(app).items(&[&toggle, &quit]).build()?;
+
                 let _tray = TrayIconBuilder::new()
                     .tooltip("Sticky Todo")
                     .icon(icon.clone())
+                    .menu(&menu)
+                    .show_menu_on_left_click(false)
                     .on_tray_icon_event(|tray, event| {
                         if let TrayIconEvent::Click {
                             button: MouseButton::Left,
@@ -771,12 +794,13 @@ fn main() {
                             ..
                         } = event
                         {
-                            let app = tray.app_handle();
-                            if let Some(win) = app.get_webview_window("main") {
-                                let _ = win.show();
-                                let _ = win.set_focus();
-                            }
+                            toggle_main_window(tray.app_handle());
                         }
+                    })
+                    .on_menu_event(|app, event| match event.id.as_ref() {
+                        "toggle" => toggle_main_window(app),
+                        "quit" => app.exit(0),
+                        _ => {}
                     })
                     .build(app)?;
             }
